@@ -1,4 +1,4 @@
-from python_template_uv.config import Settings, get_settings
+from portfolio_assistant.config import Settings, get_settings
 
 
 def test_settings_load(override_settings: Settings) -> None:

@@ -4,7 +4,7 @@ import os
 
 import pytest
 
-from python_template_uv.config import Settings
+from portfolio_assistant.config import Settings
 
 # Vynucení testovacího prostředí
 os.environ["ENVIRONMENT"] = "testing"
