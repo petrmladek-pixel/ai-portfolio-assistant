@@ -1,0 +1,12 @@
+from fastapi import FastAPI
+
+from python_template_uv.config import get_settings
+
+settings = get_settings()
+
+app = FastAPI(title=settings.app_name)
+
+
+@app.get("/health")
+def health_check() -> dict[str, str]:
+    return {"status": "ok", "environment": settings.environment}
