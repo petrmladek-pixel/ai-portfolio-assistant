@@ -26,6 +26,59 @@ class TransactionType(StrEnum):
     SELL = "SELL"
 
 
+class AnonymizedPosition(BaseModel):
+    """Represents a privacy-preserving stock position with relative weight.
+
+    Attributes:
+        ticker (str): The stock ticker symbol (e.g., AAPL). Must be non-empty.
+            Automatically stripped of whitespace and converted to uppercase.
+        name (str | None): The name of the company or stock.
+        weight (Decimal): The percentage weight of this position in the portfolio.
+            Must be strictly greater than 0 and less than or equal to 1.
+        currency (Currency): The currency of the stock position.
+    """
+
+    ticker: str = Field(..., min_length=1)
+    name: str | None = None
+    weight: Decimal = Field(..., gt=0, le=1)
+    currency: Currency
+
+    @field_validator("ticker", mode="before")
+    @classmethod
+    def clean_ticker(cls, v: str) -> str:
+        """Strips whitespace and converts the ticker to uppercase.
+
+        Args:
+            v (str): The raw ticker value.
+
+        Returns:
+            str: The cleaned and uppercase ticker.
+
+        Raises:
+            ValueError: If the ticker is not a string or empty.
+        """
+        if not isinstance(v, str):
+            raise ValueError("Ticker must be a string")
+        cleaned = v.strip().upper()
+        if not cleaned:
+            raise ValueError("Ticker cannot be empty or only whitespace")
+        return cleaned
+
+
+class AnonymizedPortfolio(BaseModel):
+    """Represents an anonymized portfolio with positions and their weights.
+
+    Attributes:
+        broker_name (str): The name of the importing broker.
+        imported_at (datetime): The timestamp when the portfolio was imported.
+        positions (list[AnonymizedPosition]): List of anonymized positions.
+    """
+
+    broker_name: str
+    imported_at: datetime
+    positions: list[AnonymizedPosition]
+
+
 class StockPosition(BaseModel):
     """Represents a validated stock position in a portfolio.
 
@@ -73,12 +126,55 @@ class ImportedPortfolio(BaseModel):
     Attributes:
         broker_name (str): The name of the importing broker. Must be non-empty.
         imported_at (datetime): The timestamp when the portfolio was imported.
-        positions (List[StockPosition]): List of validated stock positions.
+        positions (list[StockPosition]): List of validated stock positions.
     """
 
     broker_name: str = Field(..., min_length=1)
     imported_at: datetime
     positions: list[StockPosition] = Field(default_factory=list)
+
+    def to_anonymized(self) -> AnonymizedPortfolio:
+        """Converts the imported portfolio to an anonymized version with weights.
+
+        Calculates weights based on the total value (quantity * average_price).
+        Weights are calculated using decimal precision.
+
+        Returns:
+            AnonymizedPortfolio: The anonymized version of this portfolio.
+
+        Raises:
+            ValueError: If the portfolio is empty.
+        """
+        if not self.positions:
+            return AnonymizedPortfolio(
+                broker_name=self.broker_name,
+                imported_at=self.imported_at,
+                positions=[],
+            )
+
+        # Calculate position values and total portfolio value
+        position_values = [
+            (pos, pos.quantity * pos.average_price) for pos in self.positions
+        ]
+        total_value = sum((val for _, val in position_values), Decimal(0))
+
+        anonymized_positions = []
+        for pos, val in position_values:
+            weight = val / total_value if total_value > 0 else Decimal(0)
+            anonymized_positions.append(
+                AnonymizedPosition(
+                    ticker=pos.ticker,
+                    name=pos.name,
+                    weight=weight,
+                    currency=pos.currency,
+                )
+            )
+
+        return AnonymizedPortfolio(
+            broker_name=self.broker_name,
+            imported_at=self.imported_at,
+            positions=anonymized_positions,
+        )
 
     @field_validator("broker_name", mode="before")
     @classmethod

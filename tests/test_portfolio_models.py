@@ -7,6 +7,8 @@ import pytest
 from pydantic import ValidationError
 
 from portfolio_assistant.models.portfolio import (
+    AnonymizedPortfolio,
+    AnonymizedPosition,
     Currency,
     ImportedPortfolio,
     StockPosition,
@@ -93,3 +95,81 @@ def test_imported_portfolio_invalid_broker():
             imported_at=datetime.now(),
             positions=[],
         )
+
+
+def test_anonymized_position_valid():
+    """Test creating a valid AnonymizedPosition."""
+    pos = AnonymizedPosition(
+        ticker=" tsla ",
+        name="Tesla Inc.",
+        weight=Decimal("0.25"),
+        currency=Currency.USD,
+    )
+    assert pos.ticker == "TSLA"
+    assert pos.weight == Decimal("0.25")
+
+
+def test_anonymized_position_invalid_weight():
+    """Test AnonymizedPosition with invalid weight values."""
+    # Weight <= 0
+    with pytest.raises(ValidationError):
+        AnonymizedPosition(
+            ticker="AAPL",
+            weight=Decimal("0"),
+            currency=Currency.USD,
+        )
+
+    # Weight > 1
+    with pytest.raises(ValidationError):
+        AnonymizedPosition(
+            ticker="AAPL",
+            weight=Decimal("1.0001"),
+            currency=Currency.USD,
+        )
+
+
+def test_to_anonymized_calculation():
+    """Test the to_anonymized method calculation and output."""
+    now = datetime.now()
+    pos1 = StockPosition(
+        ticker="AAPL",
+        quantity=Decimal("10"),
+        average_price=Decimal("150"),  # Value: 1500
+        currency=Currency.USD,
+    )
+    pos2 = StockPosition(
+        ticker="MSFT",
+        quantity=Decimal("5"),
+        average_price=Decimal("300"),  # Value: 1500
+        currency=Currency.USD,
+    )
+    # Total value = 3000, each weight should be 0.5
+
+    portfolio = ImportedPortfolio(
+        broker_name="TestBroker",
+        imported_at=now,
+        positions=[pos1, pos2],
+    )
+
+    anonymized = portfolio.to_anonymized()
+
+    assert isinstance(anonymized, AnonymizedPortfolio)
+    assert anonymized.broker_name == "TestBroker"
+    assert anonymized.imported_at == now
+    assert len(anonymized.positions) == 2
+
+    # Verify weights
+    weights = {p.ticker: p.weight for p in anonymized.positions}
+    assert weights["AAPL"] == Decimal("0.5")
+    assert weights["MSFT"] == Decimal("0.5")
+
+
+def test_to_anonymized_empty():
+    """Test to_anonymized with an empty portfolio."""
+    portfolio = ImportedPortfolio(
+        broker_name="Empty",
+        imported_at=datetime.now(),
+        positions=[],
+    )
+    anonymized = portfolio.to_anonymized()
+    assert len(anonymized.positions) == 0
