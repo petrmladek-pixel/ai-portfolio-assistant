@@ -29,11 +29,10 @@ repos:
         types: [python]
         pass_filenames: true
 
-  # 4. Codespell for catching typos before pushing to GitHub
-  # Ignored Czech and Dutch broker-specific header terms are listed in the arguments below
+# 4. Codespell for catching typos before pushing to GitHub
+  # Configuration is read automatically from pyproject.toml
   - repo: https://github.com/codespell-project/codespell
     rev: v2.4.2
     hooks:
       - id: codespell
-        args: [--ignore-words-list, "mnozstvi,cas,bpe,bep,prumerny,kurz,cena,produkt,aantal,koers,waarde,wisselkoers,transactiekosten,totaal"]
         types_or: [python, markdown, yaml]

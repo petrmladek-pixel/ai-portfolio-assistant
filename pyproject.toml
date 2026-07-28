@@ -46,6 +46,7 @@ convention = "google"
 
 [tool.codespell]
 skip = ".git,.venv,build,dist,uv.lock"
+ignore-words-list = "mnozstvi,cas,bpe,bep,prumerny,kurz,cena,produkt,aantal,koers,waarde,wisselkoers,transactiekosten,totaal"
 count = true
 quiet-level = 3
 
