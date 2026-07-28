@@ -57,5 +57,4 @@ Types:
 2. Before committing, verify that the code contains no syntax errors.
 3. All code comments, docstrings, type hint descriptions, and commit messages
    MUST be written strictly in English.
-4. Don't run any tests automatically
 5
