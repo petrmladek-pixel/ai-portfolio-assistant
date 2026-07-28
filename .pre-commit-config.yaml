@@ -1,0 +1,37 @@
+# .pre-commit-config.yaml
+repos:
+  # 1. Standardní kontroly souborů, konců řádků a YAML syntaxe
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v5.0.0
+    hooks:
+      - id: trailing-whitespace
+      - id: end-of-file-fixer
+      - id: check-yaml
+      - id: check-added-large-files
+
+  # 2. Ruff pro bleskurychlý lint a formátování Pythonu
+  - repo: https://github.com/astral-sh/ruff-pre-commit
+    rev: v0.15.20
+    hooks:
+      - id: ruff-check
+        args: [--fix]
+      - id: ruff-format
+
+  # 3. Local Mypy (Runs inside your local uv virtual environment)
+  - repo: local
+    hooks:
+      - id: mypy
+        name: mypy
+        entry: uv run mypy
+        language: system
+        types: [python]
+        pass_filenames: true
+
+  # 4. Codespell pro odchytání překlepů před odesláním na GitHub
+  # Zde máme přímo v argumentu ignorována česká slova z tvého parseru!
+  - repo: https://github.com/codespell-project/codespell
+    rev: v2.4.2
+    hooks:
+      - id: codespell
+        args: [--ignore-words-list, "mnozstvi,cas,bpe,bep,prumerny,kurz,cena, produkt"]
+        types_or: [python, markdown, yaml]

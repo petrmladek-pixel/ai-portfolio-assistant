@@ -17,6 +17,7 @@ dev = [
     "codespell>=2.4.3",
     "google-genai>=2.14.0",
     "mypy>=2.3.0",
+    "pre-commit>=4.6.1",
     "pytest>=8.0.0",
     "pytest-asyncio>=1.4.0",
     "ruff>=0.3.0",
@@ -59,3 +60,8 @@ namespace_packages = true
 
 # Volitelné: pokud chceš mít velmi striktní typování
 strict = true
+
+[[tool.mypy.overrides]]
+module = ["tests.*", "scripts.*"]
+disallow_untyped_defs = false
+disallow_incomplete_defs = false
