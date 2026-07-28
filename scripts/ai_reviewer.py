@@ -170,6 +170,7 @@ def _required_environment(name: str) -> str:
         raise RuntimeError(f"Required environment variable {name} is not set")
     return value
 
+
 def _get_gemini_api_key() -> str:
     api_key = os.environ.get("GEMINI_API_KEY")
     if not api_key:

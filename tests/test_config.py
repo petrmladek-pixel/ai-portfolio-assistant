@@ -15,4 +15,4 @@ def test_get_settings_without_override() -> None:
     settings = get_settings()
     # This is due to os.environ["ENVIRONMENT"] = "testing" in conftest.py
     assert settings.environment == "testing"
-    assert settings.debug is False # Default debug is False
+    assert settings.debug is False  # Default debug is False
