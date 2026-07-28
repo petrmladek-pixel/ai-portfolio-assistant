@@ -87,7 +87,7 @@ class StockPosition(BaseModel):
             Automatically stripped of whitespace and converted to uppercase.
         name (Optional[str]): The name of the company or stock.
         quantity (Decimal): The amount of stock owned. Must be strictly greater than 0.
-        average_price (Decimal): The average purchase price. Must be strictly greater 
+        average_price (Decimal): The average purchase price. Must be strictly greater
         than 0.
         currency (Currency): The currency of the stock position.
     """
