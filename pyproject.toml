@@ -50,3 +50,12 @@ quiet-level = 3
 
 [tool.uv]
 package = true
+
+[tool.mypy]
+python_version = "3.12"  # uprav případně podle své verze v pyproject.toml
+mypy_path = "src"
+explicit_package_bases = true
+namespace_packages = true
+
+# Volitelné: pokud chceš mít velmi striktní typování
+strict = true
