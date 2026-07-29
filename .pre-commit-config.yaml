@@ -36,3 +36,10 @@ repos:
     hooks:
       - id: codespell
         types_or: [python, markdown, yaml]
+
+# 5. Commitizen for enforcing commit message conventions
+  - repo: https://github.com/commitizen-tools/commitizen
+    rev: v4.10.0
+    hooks:
+      - id: commitizen
+        stages: [commit-msg]
