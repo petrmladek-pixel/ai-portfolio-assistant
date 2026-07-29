@@ -6,7 +6,7 @@ using the yfinance library to fetch current prices and exchange rates.
 
 import asyncio
 import logging
-from decimal import Decimal
+from decimal import ConversionSyntax, Decimal
 
 import pandas as pd
 import yfinance as yf
@@ -114,6 +114,27 @@ class YFinanceMarketDataService(BaseMarketDataService):
         ):
             series = df["Close"].dropna()
             if not series.empty:
-                return Decimal(str(series.iloc[-1]))
+                try:
+                    # Get the last value from the series, ensuring it's a scalar
+                    last_value = series.iloc[-1]
+
+                    # Handle different types that yfinance might return
+                    if hasattr(last_value, "item"):  # pandas Series
+                        rate_value = last_value.item()
+                    elif isinstance(last_value, (int, float)):
+                        rate_value = last_value
+                    else:
+                        # Try to extract scalar value from various pandas types
+                        rate_value = float(last_value)
+
+                    return Decimal(str(rate_value))
+                except (ValueError, ConversionSyntax, AttributeError, TypeError) as e:
+                    logger.error(
+                        f"Failed to parse exchange rate {from_curr}->{to_curr}: "
+                        f"{series.iloc[-1]} (type: {type(series.iloc[-1])}) ({e})"
+                    )
+                    raise ValueError(
+                        f"Could not parse exchange rate for {from_curr} to {to_curr}"
+                    ) from e
 
         raise ValueError(f"Could not fetch exchange rate for {from_curr} to {to_curr}")

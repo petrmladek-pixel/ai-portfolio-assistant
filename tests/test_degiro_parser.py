@@ -150,3 +150,38 @@ def test_to_anonymized_weights(degiro_parser, mock_degiro_csv_en):
 
     assert anonymized_portfolio.positions[0].weight == expected_weight_pos1
     assert anonymized_portfolio.positions[1].weight == expected_weight_pos2
+
+
+def test_degiro_parser_cz_closing_price():
+    """Test DEGIRO parser with Czech CSV using 'Uzavírací' (Closing Price) header."""
+    csv_content = """Produkt,Symbol/ISIN,Množství,Uzavírací,Hodnota,,Hodnota v EUR
+ADR ON SONY GROUP CORP,US8356993076,2,22.29,16539.18 USD,14547.86
+ADR ON TOYOTA MOTOR CORP,US8923313071,2,182.15,4553.75 USD,4005.48
+ALLIANZ SE,DE0008404005,3,430.40,5595.20 EUR,5595.20"""
+
+    parser = DegiroPortfolioParser()
+    portfolio = parser.parse_sync(csv_content.encode("utf-8"))
+
+    assert portfolio.broker_name == "DEGIRO"
+    assert len(portfolio.positions) == 3
+
+    pos1 = portfolio.positions[0]
+    assert pos1.ticker == "US8356993076"  # Not in ISIN_TO_TICKER map, so uses ISIN
+    assert pos1.name == "ADR ON SONY GROUP CORP"
+    assert pos1.quantity == Decimal("2")
+    assert pos1.average_price == Decimal("22.29")
+    assert pos1.currency == Currency.USD
+
+    pos2 = portfolio.positions[1]
+    assert pos2.ticker == "US8923313071"  # Not in ISIN_TO_TICKER map, so uses ISIN
+    assert pos2.name == "ADR ON TOYOTA MOTOR CORP"
+    assert pos2.quantity == Decimal("2")
+    assert pos2.average_price == Decimal("182.15")
+    assert pos2.currency == Currency.USD
+
+    pos3 = portfolio.positions[2]
+    assert pos3.ticker == "DE0008404005"  # Not in ISIN_TO_TICKER map, so uses ISIN
+    assert pos3.name == "ALLIANZ SE"
+    assert pos3.quantity == Decimal("3")
+    assert pos3.average_price == Decimal("430.40")
+    assert pos3.currency == Currency.EUR
