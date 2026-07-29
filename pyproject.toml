@@ -1,6 +1,6 @@
 [project]
 name = "portfolio_assistant"
-version = "0.1.0"
+version = "0.2.0"
 description = "A simple portfolio assistant built with FastAPI"
 readme = "README.md"
 requires-python = ">=3.11"
@@ -16,6 +16,7 @@ dependencies = [
 [dependency-groups]
 dev = [
     "codespell>=2.4.3",
+    "commitizen>=4.17.0",
     "google-genai>=2.14.0",
     "mypy>=2.3.0",
     "pre-commit>=4.6.1",
@@ -68,3 +69,11 @@ module = ["tests.*", "scripts.*", "pandas.*", "yfinance.*"]
 disallow_untyped_defs = false
 disallow_incomplete_defs = false
 ignore_missing_imports = true
+
+[tool.commitizen]
+name = "cz_conventional_commits"
+tag_format = "v$version"
+version_scheme = "semver"
+version_provider = "pep621" # Přečte a upraví verzi přímo v [project] sekci pyproject.toml
+update_changelog_on_bump = true
+changelog_file = "CHANGELOG.md"

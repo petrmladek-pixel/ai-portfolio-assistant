@@ -26,3 +26,6 @@ run-hooks:
 # Cleans up temporary caches
 clean:
 	rm -rf .mypy_cache .pytest_cache .ruff_cache .venv
+
+release:
+	uv run cz bump --yes
