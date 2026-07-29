@@ -96,3 +96,23 @@ async def test_yfinance_get_exchange_rate_failure():
     with patch("yfinance.download", return_value=mock_df):
         with pytest.raises(ValueError, match="Could not fetch exchange rate"):
             await service.get_exchange_rate("USD", "CZK")
+
+
+@pytest.mark.asyncio
+async def test_yfinance_get_current_prices_missing_ticker():
+    """Test get_current_prices with one requested ticker missing in response."""
+    service = YFinanceMarketDataService()
+
+    # Mock yf.download to return a DataFrame for only one of two requested tickers
+    columns = pd.MultiIndex.from_tuples([("Close", "AAPL")])
+    mock_df = pd.DataFrame(
+        [[150.50]],
+        columns=columns,
+        index=[pd.Timestamp("2026-07-29")],
+    )
+
+    with patch("yfinance.download", return_value=mock_df):
+        with pytest.raises(
+            ValueError, match="Could not fetch prices for tickers: MSFT"
+        ):
+            await service.get_current_prices(["AAPL", "MSFT"])

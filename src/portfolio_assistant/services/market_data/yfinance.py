@@ -5,12 +5,15 @@ using the yfinance library to fetch current prices and exchange rates.
 """
 
 import asyncio
+import logging
 from decimal import Decimal
 
 import pandas as pd
 import yfinance as yf
 
 from portfolio_assistant.services.market_data.base import BaseMarketDataService
+
+logger = logging.getLogger(__name__)
 
 
 class YFinanceMarketDataService(BaseMarketDataService):
@@ -61,6 +64,13 @@ class YFinanceMarketDataService(BaseMarketDataService):
                 series = df["Close"].dropna()
                 if not series.empty and len(tickers_upper) == 1:
                     prices[tickers_upper[0]] = Decimal(str(series.iloc[-1]))
+
+        # Check for missing tickers
+        missing = set(tickers_upper) - set(prices.keys())
+        if missing:
+            msg = f"Could not fetch prices for tickers: {', '.join(sorted(missing))}"
+            logger.warning(msg)
+            raise ValueError(msg)
 
         return prices
 
