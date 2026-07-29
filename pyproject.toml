@@ -10,6 +10,7 @@ dependencies = [
     "pydantic-settings>=2.14.2",
     "python-dotenv>=1.0.0",
     "uvicorn>=0.28.0",
+    "yfinance>=1.5.2",
 ]
 
 [dependency-groups]
@@ -63,6 +64,7 @@ namespace_packages = true
 strict = true
 
 [[tool.mypy.overrides]]
-module = ["tests.*", "scripts.*"]
+module = ["tests.*", "scripts.*", "pandas.*", "yfinance.*"]
 disallow_untyped_defs = false
 disallow_incomplete_defs = false
+ignore_missing_imports = true

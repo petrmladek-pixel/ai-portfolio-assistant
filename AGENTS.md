@@ -29,7 +29,7 @@ The project strictly uses a modern src-layout with the uv package manager.
 - All imports must be absolute from src.
 - Use pytest and synchronous/asynchronous TestClient for testing.
 - Tests must cover both valid flows and error states, such as empty inputs.
-- Be compliant with Ruff checks. Like maximum line length of 88 characters
+- Be compliant with Ruff checks. This includes a STRICT maximum line length of 88 characters for ALL lines, including comments, docstrings, and code. Never generate any line longer than 88 characters.
 
 ## 4. Development Workflow
 
