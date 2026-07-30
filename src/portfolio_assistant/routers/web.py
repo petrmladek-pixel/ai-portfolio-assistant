@@ -1,10 +1,11 @@
 """Web routes for the portfolio dashboard."""
 
+import json
 from decimal import Decimal
 from pathlib import Path
 from typing import Annotated
 
-from fastapi import APIRouter, Form, Request, UploadFile
+from fastapi import APIRouter, Depends, Form, Request, UploadFile
 from fastapi.responses import HTMLResponse
 from fastapi.templating import Jinja2Templates
 
@@ -19,18 +20,22 @@ def format_currency(value: Decimal) -> str:
     if value == Decimal(0):
         return "0.00"
 
-    # Convert to string and split into integer and decimal parts
-    value_str = f"{value:.2f}"
+    is_negative = value < 0
+    abs_value = abs(value)
+
+    # Convert absolute value to string and split into parts
+    value_str = f"{abs_value:.2f}"
     integer_part, decimal_part = value_str.split(".")
 
-    # Add thousand separators
+    # Add thousand separators to the integer part
     formatted_integer = ""
     for i, char in enumerate(reversed(integer_part)):
         if i > 0 and i % 3 == 0:
             formatted_integer = " " + formatted_integer
         formatted_integer = char + formatted_integer
 
-    return f"{formatted_integer},{decimal_part}"
+    sign = "-" if is_negative else ""
+    return f"{sign}{formatted_integer},{decimal_part}"
 
 
 # Set up templates
@@ -44,16 +49,23 @@ templates.env.filters["format_currency"] = format_currency
 router = APIRouter(prefix="", tags=["web"])
 
 
-# Initialize services
+# Initialize services using FastAPI dependency injection
 def get_market_data_service() -> YFinanceMarketDataService:
+    """FastAPI dependency: Get market data service instance."""
     return YFinanceMarketDataService()
 
 
-def get_valuation_service() -> ValuationService:
-    return ValuationService(get_market_data_service())
+def get_valuation_service(
+    market_data_service: Annotated[
+        YFinanceMarketDataService, Depends(get_market_data_service)
+    ],
+) -> ValuationService:
+    """FastAPI dependency: Get valuation service instance."""
+    return ValuationService(market_data_service)
 
 
 def get_portfolio_parser() -> DegiroPortfolioParser:
+    """FastAPI dependency: Get portfolio parser instance."""
     return DegiroPortfolioParser()
 
 
@@ -66,7 +78,7 @@ async def dashboard_get(request: Request) -> HTMLResponse:
         context={
             "valued_portfolio": None,
             "total_value_formatted": None,
-            "chart_data": None,
+            "chart_data_json": None,
             "error": None,
         },
     )
@@ -76,15 +88,17 @@ async def dashboard_get(request: Request) -> HTMLResponse:
 async def upload_portfolio(
     request: Request,
     file: Annotated[UploadFile, Form()],
+    valuation_service: Annotated[ValuationService, Depends(get_valuation_service)],
+    portfolio_parser: Annotated[DegiroPortfolioParser, Depends(get_portfolio_parser)],
 ) -> HTMLResponse:
     """Handle portfolio CSV upload and display valuation results."""
     try:
         # Read and parse the uploaded file
         file_content = await file.read()
-        imported_portfolio = get_portfolio_parser().parse_sync(file_content)
+        imported_portfolio = portfolio_parser.parse_sync(file_content)
 
         # Value the portfolio
-        valued_portfolio = await get_valuation_service().value_portfolio_async(
+        valued_portfolio = await valuation_service.value_portfolio_async(
             imported_portfolio, target_currency=Currency.CZK
         )
 
@@ -97,6 +111,9 @@ async def upload_portfolio(
             "weights": chart_weights,
         }
 
+        # Convert chart data to JSON string for safe template rendering
+        chart_data_json = json.dumps(chart_data)
+
         # Format total value
         total_value_formatted = format_currency(valued_portfolio.total_value)
 
@@ -106,7 +123,7 @@ async def upload_portfolio(
             context={
                 "valued_portfolio": valued_portfolio,
                 "total_value_formatted": total_value_formatted,
-                "chart_data": chart_data,
+                "chart_data_json": chart_data_json,
                 "error": None,
             },
         )
@@ -118,7 +135,7 @@ async def upload_portfolio(
             context={
                 "valued_portfolio": None,
                 "total_value_formatted": None,
-                "chart_data": None,
+                "chart_data_json": None,
                 "error": f"Error processing portfolio: {str(e)}",
             },
         )

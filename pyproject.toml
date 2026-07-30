@@ -5,7 +5,7 @@ description = "A simple portfolio assistant built with FastAPI"
 readme = "README.md"
 requires-python = ">=3.11"
 dependencies = [
-    "fastapi[standard]>=0.110.0",
+    "fastapi>=0.110.0",
     "jinja2>=3.1.6",
     "pydantic>=2.6.0",
     "pydantic-settings>=2.14.2",
@@ -45,6 +45,9 @@ line-length = 88
 
 [tool.ruff.lint]
 select = ["E", "F", "I", "UP", "B"]
+
+[tool.ruff.lint.per-file-ignores]
+"src/portfolio_assistant/routers/web.py" = ["B008"]
 
 [tool.ruff.lint.pydocstyle]
 convention = "google"

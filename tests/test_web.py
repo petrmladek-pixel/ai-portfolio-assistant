@@ -3,7 +3,7 @@
 import warnings
 from datetime import datetime
 from decimal import Decimal
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import AsyncMock, MagicMock
 
 from fastapi.testclient import TestClient
 
@@ -14,6 +14,10 @@ from portfolio_assistant.models.portfolio import (
     StockPosition,
 )
 from portfolio_assistant.models.valuation import ValuedPortfolio, ValuedPosition
+from portfolio_assistant.routers.web import (
+    get_portfolio_parser,
+    get_valuation_service,
+)
 
 # Suppress the httpx deprecation warning
 warnings.filterwarnings("ignore", message=".*httpx.*", category=DeprecationWarning)
@@ -32,7 +36,7 @@ def test_get_dashboard():
 
 def test_post_upload_valid_csv():
     """Test that POST /upload with valid CSV processes successfully."""
-    # Create mock portfolio data
+    # 1. Create mock data (same as your original implementation)
     mock_positions = [
         StockPosition(
             ticker="AAPL",
@@ -56,7 +60,6 @@ def test_post_upload_valid_csv():
         positions=mock_positions,
     )
 
-    # Create mock valued portfolio
     mock_valued_positions = [
         ValuedPosition(
             ticker="AAPL",
@@ -64,7 +67,7 @@ def test_post_upload_valid_csv():
             quantity=Decimal("10"),
             unit_price_original=Decimal("180.75"),
             currency_original=Currency.USD,
-            unit_price_target=Decimal("4000.00"),  # Mock CZK value
+            unit_price_target=Decimal("4000.00"),
             currency_target=Currency.CZK,
             total_value_target=Decimal("40000.00"),
             weight=Decimal("0.6667"),
@@ -75,7 +78,7 @@ def test_post_upload_valid_csv():
             quantity=Decimal("5"),
             unit_price_original=Decimal("350.50"),
             currency_original=Currency.USD,
-            unit_price_target=Decimal("8000.00"),  # Mock CZK value
+            unit_price_target=Decimal("8000.00"),
             currency_target=Currency.CZK,
             total_value_target=Decimal("20000.00"),
             weight=Decimal("0.3333"),
@@ -91,51 +94,50 @@ def test_post_upload_valid_csv():
         target_currency=Currency.CZK,
     )
 
-    # Mock CSV content (simplified DEGIRO format)
     csv_content = """Product,Symbol/ISIN,Quantity,Break-even Price,Currency
 Apple Inc.,AAPL,10,150.50,USD
 Microsoft Corp.,MSFT,5,300.25,USD"""
 
-    # Create mock file
     files = {"file": ("portfolio.csv", csv_content, "text/csv")}
 
-    # Patch the service getter functions
-    with (
-        patch("portfolio_assistant.routers.web.get_portfolio_parser") as mock_parser,
-        patch("portfolio_assistant.routers.web.get_valuation_service") as mock_val,
-    ):
-        # Setup mock parser
-        mock_parser_instance = MagicMock()
-        mock_parser_instance.parse_sync.return_value = mock_imported_portfolio
-        mock_parser.return_value = mock_parser_instance
+    # Create mock instances
+    mock_parser_instance = MagicMock()
+    mock_parser_instance.parse_sync.return_value = mock_imported_portfolio
 
-        # Setup mock valuation service
-        mock_val_instance = MagicMock()
-        mock_val_instance.value_portfolio_async.return_value = mock_valued_portfolio
-        mock_val_instance.value_portfolio_async = AsyncMock(
-            return_value=mock_valued_portfolio
-        )
-        mock_val.return_value = mock_val_instance
+    mock_val_instance = MagicMock()
+    mock_val_instance.value_portfolio_async = AsyncMock(
+        return_value=mock_valued_portfolio
+    )
 
-        # Make the request
+    # Override dependencies in the FastAPI application
+    app.dependency_overrides[get_portfolio_parser] = lambda: mock_parser_instance
+    app.dependency_overrides[get_valuation_service] = lambda: mock_val_instance
+
+    try:
+        # Perform the request
         response = client.post("/upload", files=files)
 
         # Assertions
         assert response.status_code == 200
         assert "text/html" in response.headers["content-type"]
 
-        # Check that the template contains expected data
         content = response.text
         assert "Portfolio Summary" in content
         assert "AAPL" in content
         assert "MSFT" in content
-        assert "60 000,00" in content  # Formatted total value
+        assert "60 000,00" in content  # Now it will ALWAYS be the mock value: 60 000,00
         assert "CZK" in content
 
-        # Check that chart data is present
+        # Check that chart data is present (using safe JSON approach)
+        assert "chart-data" in content
+        assert "data-chart=" in content
         assert "allocationChart" in content
         assert "AAPL" in content
         assert "MSFT" in content
+
+    finally:
+        # 5. IMPORTANT: Clean up dependency overrides to keep other tests isolated
+        app.dependency_overrides.clear()
 
 
 def test_post_upload_invalid_csv():
@@ -146,19 +148,20 @@ This,is,not,a,valid,CSV"""
 
     files = {"file": ("invalid.csv", csv_content, "text/csv")}
 
-    # Patch the parser to raise an exception
-    with patch("portfolio_assistant.routers.web.get_portfolio_parser") as mock_parser:
-        mock_parser_instance = MagicMock()
-        mock_parser_instance.parse_sync.side_effect = ValueError("Invalid CSV format")
-        mock_parser.return_value = mock_parser_instance
+    # Override dependencies in the FastAPI application
+    mock_parser_service = MagicMock()
+    mock_parser_service.parse_sync = MagicMock(
+        side_effect=ValueError("Invalid CSV format")
+    )
+    app.dependency_overrides[get_portfolio_parser] = lambda: mock_parser_service
 
-        response = client.post("/upload", files=files)
+    response = client.post("/upload", files=files)
 
-        # Assertions
-        assert response.status_code == 200
-        assert "text/html" in response.headers["content-type"]
-        assert "Error processing portfolio" in response.text
-        assert "Invalid CSV format" in response.text
+    # Assertions
+    assert response.status_code == 200
+    assert "text/html" in response.headers["content-type"]
+    assert "Error processing portfolio" in response.text
+    assert "Invalid CSV format" in response.text
 
 
 def test_post_upload_empty_file():

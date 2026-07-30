@@ -99,10 +99,13 @@
             </div>
         </div>
 
+        <div id="chart-data" data-chart='{{ chart_data_json }}' class="hidden"></div>
+
         <script>
             // Initialize the chart when the page loads
             document.addEventListener('DOMContentLoaded', function() {
-                const chartData = {{ chart_data|safe }};
+                const chartDataEl = document.getElementById('chart-data');
+                const chartData = JSON.parse(chartDataEl.dataset.chart);
                 const ctx = document.getElementById('allocationChart').getContext('2d');
 
                 new Chart(ctx, {
