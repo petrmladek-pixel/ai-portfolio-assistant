@@ -1,6 +1,7 @@
 """Web routes for the portfolio dashboard."""
 
 import json
+import logging
 from decimal import Decimal
 from pathlib import Path
 from typing import Annotated
@@ -13,6 +14,8 @@ from portfolio_assistant.models.portfolio import Currency
 from portfolio_assistant.services.market_data.yfinance import YFinanceMarketDataService
 from portfolio_assistant.services.parser.degiro import DegiroPortfolioParser
 from portfolio_assistant.services.valuation.engine import ValuationService
+
+logger = logging.getLogger(__name__)
 
 
 def format_currency(value: Decimal) -> str:
@@ -129,6 +132,8 @@ async def upload_portfolio(
         )
 
     except Exception as e:
+        logger.exception("Failed to process portfolio upload")
+
         return templates.TemplateResponse(
             request=request,
             name="dashboard.html",
