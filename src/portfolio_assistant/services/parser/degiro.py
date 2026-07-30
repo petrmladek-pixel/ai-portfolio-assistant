@@ -138,6 +138,8 @@ class DegiroPortfolioParser(BasePortfolioParser):
                 "průměrná cena",
                 "průměrný kurz",
                 "average price",
+                "uzavírací",
+                "closing price",
             ]:
                 header_map["average_price"] = header
             elif normalized_header in ["měna", "valuta", "currency"]:
@@ -199,6 +201,19 @@ class DegiroPortfolioParser(BasePortfolioParser):
             elif "$" in price_str or "USD" in price_str.upper():
                 return Currency.USD
             elif "Kč" in price_str or "CZK" in price_str.upper():
+                return Currency.CZK
+
+        # Check all other columns for currency symbols (for CSV formats like DEGIRO CZ)
+        for header, value in row_data.items():
+            if not value or not header:
+                continue
+
+            value_upper = value.strip().upper()
+            if "EUR" in value_upper or "€" in value:
+                return Currency.EUR
+            elif "USD" in value_upper or "$" in value:
+                return Currency.USD
+            elif "CZK" in value_upper or "Kč" in value_upper:
                 return Currency.CZK
 
         # Default to EUR if no currency column or symbol found
