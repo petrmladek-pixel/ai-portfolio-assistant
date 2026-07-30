@@ -1,0 +1,13 @@
+app = "ai-portfolio-assistant"
+primary_region = "cdg"  # Default to Paris or similar European region close to Prague
+
+[build]
+  dockerfile = "Dockerfile"
+
+[http_service]
+  internal_port = 8000
+  force_https = true
+  auto_stop_machines = "suspend"
+  auto_start_machines = true
+  min_machines_running = 0
+  processes = ["app"]

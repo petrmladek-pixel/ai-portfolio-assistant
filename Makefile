@@ -29,3 +29,15 @@ clean:
 
 release:
 	uv run cz bump --yes
+
+.PHONY: run
+run:
+	uv run uvicorn portfolio_assistant.main:app --reload --app-dir src
+
+.PHONY: docker-build
+docker-build:
+	docker build -t portfolio-assistant:latest .
+
+.PHONY: docker-run
+docker-run:
+	docker run -p 8000:8000 portfolio-assistant:latest

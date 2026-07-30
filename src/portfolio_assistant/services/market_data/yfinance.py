@@ -61,7 +61,14 @@ class YFinanceMarketDataService(BaseMarketDataService):
             # Single ticker download returns columns like:
             # ['Open', 'High', 'Low', 'Close', ...]
             if "Close" in df.columns:
-                series = df["Close"].dropna()
+                # Handle case where it might still be a DataFrame
+                close_data = df["Close"]
+                if isinstance(close_data, pd.DataFrame) and len(tickers_upper) == 1:
+                    ticker = tickers_upper[0]
+                    if ticker in close_data.columns:
+                        close_data = close_data[ticker]
+
+                series = close_data.dropna()
                 if not series.empty and len(tickers_upper) == 1:
                     prices[tickers_upper[0]] = Decimal(str(series.iloc[-1]))
 
@@ -106,13 +113,21 @@ class YFinanceMarketDataService(BaseMarketDataService):
             progress=False,
         )
 
-        if (
-            df is not None
-            and isinstance(df, pd.DataFrame)
-            and not df.empty
-            and "Close" in df.columns
-        ):
-            series = df["Close"].dropna()
+        if df is None or not isinstance(df, pd.DataFrame) or df.empty:
+            raise ValueError(
+                f"Could not fetch exchange rate for {from_curr} to {to_curr}"
+            )
+
+        # Handle both MultiIndex and single-ticker result formats
+        close_data = None
+        if isinstance(df.columns, pd.MultiIndex):
+            if "Close" in df.columns.levels[0] and ticker in df.columns.levels[1]:
+                close_data = df["Close"][ticker]
+        elif "Close" in df.columns:
+            close_data = df["Close"]
+
+        if close_data is not None:
+            series = close_data.dropna()
             if not series.empty:
                 return Decimal(str(series.iloc[-1]))
 
