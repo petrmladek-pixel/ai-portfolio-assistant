@@ -38,11 +38,58 @@ def test_degiro_parser_cz(degiro_parser, mock_degiro_csv_cz):
     assert pos_sony.average_price == Decimal("22.29")
     assert pos_sony.currency == Currency.USD
 
-    # Test a EUR position
-    pos_allianz = next((p for p in portfolio.positions if p.name == "ALLIANZ SE"), None)
-    assert pos_allianz is not None
-    assert pos_allianz.ticker == "DE0008404005"
-    assert pos_allianz.name == "ALLIANZ SE"
-    assert pos_allianz.quantity == Decimal("3")
-    assert pos_allianz.average_price == Decimal("430.40")
-    assert pos_allianz.currency == Currency.EUR
+    pos2 = portfolio.positions[1]
+    assert pos2.ticker == "MSFT"
+    assert pos2.name == "Microsoft Corp."
+    assert pos2.quantity == Decimal("5")
+    assert pos2.average_price == Decimal("300.00")
+    assert pos2.currency == Currency.USD
+
+
+def test_degiro_parser_comma_delimiter(degiro_parser, mock_degiro_csv_comma_delimiter):
+    portfolio = degiro_parser.parse_sync(mock_degiro_csv_comma_delimiter)
+    assert portfolio.broker_name == "DEGIRO"
+    assert len(portfolio.positions) == 2
+
+    pos1 = portfolio.positions[0]
+    assert pos1.ticker == "AAPL"
+    assert pos1.name == "Apple Inc."
+    assert pos1.quantity == Decimal("10")
+    assert pos1.average_price == Decimal("150.00")
+    assert pos1.currency == Currency.USD
+
+
+def test_degiro_parser_with_bom(degiro_parser, mock_degiro_csv_with_bom):
+    portfolio = degiro_parser.parse_sync(mock_degiro_csv_with_bom)
+    assert portfolio.broker_name == "DEGIRO"
+    assert len(portfolio.positions) == 1
+    assert portfolio.positions[0].ticker == "AAPL"
+
+
+def test_degiro_parser_isin_and_symbol(degiro_parser, mock_degiro_csv_isin_and_symbol):
+    portfolio = degiro_parser.parse_sync(mock_degiro_csv_isin_and_symbol)
+    assert portfolio.broker_name == "DEGIRO"
+    assert len(portfolio.positions) == 1
+    assert portfolio.positions[0].ticker == "AAPL"
+
+
+def test_to_anonymized_weights(degiro_parser, mock_degiro_csv_en):
+    portfolio = degiro_parser.parse_sync(mock_degiro_csv_en)
+    anonymized_portfolio = portfolio.to_anonymized()
+
+    assert anonymized_portfolio.broker_name == "DEGIRO"
+    assert len(anonymized_portfolio.positions) == 2
+
+    total_weight = sum(pos.weight for pos in anonymized_portfolio.positions)
+    assert total_weight == Decimal("1.00")
+
+    # Verify individual weights are correctly calculated
+    pos1_val = Decimal("10") * Decimal("150.00")  # 1500
+    pos2_val = Decimal("5") * Decimal("300.00")  # 1500
+    total_val = pos1_val + pos2_val  # 3000
+
+    expected_weight_pos1 = pos1_val / total_val
+    expected_weight_pos2 = pos2_val / total_val
+
+    assert anonymized_portfolio.positions[0].weight == expected_weight_pos1
+    assert anonymized_portfolio.positions[1].weight == expected_weight_pos2

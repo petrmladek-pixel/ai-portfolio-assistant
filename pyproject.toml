@@ -20,6 +20,7 @@ dev = [
     "codespell>=2.4.3",
     "commitizen>=4.17.0",
     "google-genai>=2.14.0",
+    "httpx2>=2.9.1",
     "mypy>=2.3.0",
     "pre-commit>=4.6.1",
     "pytest>=8.0.0",
