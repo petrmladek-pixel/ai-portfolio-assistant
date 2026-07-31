@@ -82,7 +82,13 @@ async def test_analyze_portfolio_success(sample_portfolio: AnonymizedPortfolio) 
     mock_client = MagicMock()
     mock_client.aio.models.generate_content = AsyncMock(return_value=mock_response)
 
-    with patch("google.genai.Client", return_value=mock_client):
+    with (
+        patch("google.genai.Client", return_value=mock_client),
+        patch("portfolio_assistant.services.ai.gemini.get_settings") as mock_settings,
+    ):
+        # Mock settings to return the expected model name
+        mock_settings.return_value.gemini_model = "gemini-2.5-flash"
+
         service = GeminiAIService(api_key="test-key")
         result = await service.analyze_portfolio(sample_portfolio)
 
@@ -93,9 +99,8 @@ async def test_analyze_portfolio_success(sample_portfolio: AnonymizedPortfolio) 
         mock_client.aio.models.generate_content.assert_called_once()
         call_args = mock_client.aio.models.generate_content.call_args
 
-        # Model name comes from settings, which defaults to
-        # "gemini-3.1-flash-lite" in .env
-        assert call_args[1]["model"] == "gemini-3.1-flash-lite"
+        # Model name should be the one we mocked
+        assert call_args[1]["model"] == "gemini-2.5-flash"
         assert "AAPL: 50.0%" in call_args[1]["contents"]
         assert "MSFT: 30.0%" in call_args[1]["contents"]
         assert "GOOGL: 20.0%" in call_args[1]["contents"]
