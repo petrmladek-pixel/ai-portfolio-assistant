@@ -4,12 +4,14 @@ This module provides asynchronous integration with Google's Gemini AI
 for analyzing anonymized portfolio data.
 """
 
-import os
+import logging
 
 from google import genai
 
 from portfolio_assistant.config import get_settings
 from portfolio_assistant.models.portfolio import AnonymizedPortfolio
+
+logger = logging.getLogger(__name__)
 
 
 class GeminiAIService:
@@ -21,8 +23,16 @@ class GeminiAIService:
     """
 
     def __init__(self, api_key: str | None = None) -> None:
-        # Explicitly pull from env if not provided
-        self.api_key = api_key or os.environ.get("GEMINI_API_KEY")
+        """Initialize the Gemini AI service.
+
+        Args:
+            api_key (Optional[str]): The Gemini API key. If None,
+                the service will attempt to use the GEMINI_API_KEY
+                environment variable via settings.
+        """
+        # Get settings once and use them for both API key and model configuration
+        settings = get_settings()
+        self.api_key = api_key or settings.gemini_api_key
 
     async def analyze_portfolio(self, portfolio: AnonymizedPortfolio) -> str:
         """Analyze a portfolio using Gemini AI.
@@ -34,8 +44,11 @@ class GeminiAIService:
             str: The AI-generated analysis in Czech, or an error message if
                 the analysis cannot be performed.
         """
+        # Get settings for API key and model configuration
+        settings = get_settings()
+
         # Check if API key is available
-        if not self.api_key and not os.environ.get("GEMINI_API_KEY"):
+        if not self.api_key and not settings.gemini_api_key:
             return (
                 "AI Analysis is currently unavailable because the Gemini API key "
                 "is not configured."
@@ -65,7 +78,7 @@ class GeminiAIService:
             )
 
             # Get model name from settings with fallback
-            model_name = get_settings().gemini_model or "gemini-2.5-flash"
+            model_name = settings.gemini_model or "gemini-2.5-flash"
 
             # Initialize the client and generate content
             client = genai.Client(api_key=self.api_key)
@@ -74,10 +87,10 @@ class GeminiAIService:
             )
 
             return response.text or ""
-        except Exception:
-            import traceback
 
-            traceback.print_exc()
+        except Exception:
+            # Log the full exception stack trace safely for monitoring systems
+            logger.exception("Gemini API call failed")
             return (
                 "AI Analysis is currently unavailable due to an external service error."
             )

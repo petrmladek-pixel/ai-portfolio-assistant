@@ -50,9 +50,14 @@ def test_gemini_service_initialization() -> None:
     service = GeminiAIService(api_key="test-key")
     assert service.api_key == "test-key"
 
-    # Test without API key - should pull from environment
-    service_no_key = GeminiAIService()
-    assert service_no_key.api_key is not None  # Will be from .env
+    # Test without API key - should be None when no environment variable is set
+    with (
+        patch.dict(os.environ, {}, clear=True),
+        patch("portfolio_assistant.services.ai.gemini.get_settings") as mock_settings,
+    ):
+        mock_settings.return_value.gemini_api_key = None
+        service_no_key = GeminiAIService()
+        assert service_no_key.api_key is None
 
 
 @pytest.mark.asyncio
@@ -60,8 +65,12 @@ async def test_analyze_portfolio_missing_api_key(
     sample_portfolio: AnonymizedPortfolio,
 ) -> None:
     """Test that service returns appropriate message when API key is missing."""
-    # Ensure no API key in environment
-    with patch.dict(os.environ, {}, clear=True):
+    # Ensure no API key in environment and mock settings
+    with (
+        patch.dict(os.environ, {}, clear=True),
+        patch("portfolio_assistant.services.ai.gemini.get_settings") as mock_settings,
+    ):
+        mock_settings.return_value.gemini_api_key = None
         service = GeminiAIService()
         result = await service.analyze_portfolio(sample_portfolio)
 
