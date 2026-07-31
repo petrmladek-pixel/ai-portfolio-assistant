@@ -15,6 +15,8 @@ from portfolio_assistant.services.market_data.yfinance import YFinanceMarketData
 from portfolio_assistant.services.parser.degiro import DegiroPortfolioParser
 from portfolio_assistant.services.valuation.engine import ValuationService
 
+from ..dependencies import verify_credentials
+
 logger = logging.getLogger(__name__)
 
 
@@ -73,7 +75,9 @@ def get_portfolio_parser() -> DegiroPortfolioParser:
 
 
 @router.get("/", response_class=HTMLResponse)
-async def dashboard_get(request: Request) -> HTMLResponse:
+async def dashboard_get(
+    request: Request, username: Annotated[str, Depends(verify_credentials)]
+) -> HTMLResponse:
     """Render the dashboard with upload form."""
     return templates.TemplateResponse(
         request=request,
@@ -83,6 +87,7 @@ async def dashboard_get(request: Request) -> HTMLResponse:
             "total_value_formatted": None,
             "chart_data_json": None,
             "error": None,
+            "username": username,
         },
     )
 
@@ -93,6 +98,7 @@ async def upload_portfolio(
     file: Annotated[UploadFile, Form()],
     valuation_service: Annotated[ValuationService, Depends(get_valuation_service)],
     portfolio_parser: Annotated[DegiroPortfolioParser, Depends(get_portfolio_parser)],
+    username: Annotated[str, Depends(verify_credentials)],
 ) -> HTMLResponse:
     """Handle portfolio CSV upload and display valuation results."""
     try:
@@ -128,6 +134,7 @@ async def upload_portfolio(
                 "total_value_formatted": total_value_formatted,
                 "chart_data_json": chart_data_json,
                 "error": None,
+                "username": username,
             },
         )
 
@@ -142,5 +149,6 @@ async def upload_portfolio(
                 "total_value_formatted": None,
                 "chart_data_json": None,
                 "error": f"Error processing portfolio: {str(e)}",
+                "username": username,
             },
         )
