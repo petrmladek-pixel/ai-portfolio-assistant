@@ -34,6 +34,14 @@ class Settings(BaseSettings):
         default="gemini-2.5-flash", description="Default Gemini Model"
     )
 
+    # Web Basic Authentication
+    web_basic_auth_username: str | None = Field(
+        default=None, description="Username for web dashboard basic authentication"
+    )
+    web_basic_auth_password: str | None = Field(
+        default=None, description="Password for web dashboard basic authentication"
+    )
+
 
 @lru_cache
 def get_settings() -> Settings:

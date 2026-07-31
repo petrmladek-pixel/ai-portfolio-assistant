@@ -1,0 +1,29 @@
+{
+    "version": "0.2.0",
+    "configurations": [
+        {
+            "name": "Python: FastAPI (F5)",
+            "type": "debugpy",
+            "request": "launch",
+            "module": "uvicorn",
+            "args": [
+                "portfolio_assistant.main:app",
+                "--reload",
+                "--port",
+                "8000",
+                "--app-dir",
+                "src"
+            ],
+            "jinja": true,
+            "env": {
+                "PYTHONPATH": "${workspaceFolder}/src",
+                "WEB_BASIC_AUTH_USERNAME": "admin",
+                "WEB_BASIC_AUTH_PASSWORD": "admin"
+            },
+            "serverReadyAction": {
+                "action": "openExternally",
+                "pattern": "Uvicorn running on (http://\\S+)"
+            }
+        }
+    ]
+}

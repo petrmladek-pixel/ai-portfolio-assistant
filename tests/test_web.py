@@ -26,7 +26,13 @@ client = TestClient(app)
 
 def test_get_dashboard():
     """Test that GET / returns 200 OK and contains upload form."""
+    # Test without authentication (should fail)
     response = client.get("/")
+    assert response.status_code == 401
+    assert "WWW-Authenticate" in response.headers
+
+    # Test with correct authentication
+    response = client.get("/", auth=("admin", "admin"))
     assert response.status_code == 200
     assert "text/html" in response.headers["content-type"]
     assert b"Upload Portfolio CSV" in response.content
@@ -114,8 +120,8 @@ Microsoft Corp.,MSFT,5,300.25,USD"""
     app.dependency_overrides[get_valuation_service] = lambda: mock_val_instance
 
     try:
-        # Perform the request
-        response = client.post("/upload", files=files)
+        # Perform the request with authentication
+        response = client.post("/upload", files=files, auth=("admin", "admin"))
 
         # Assertions
         assert response.status_code == 200
@@ -155,7 +161,7 @@ This,is,not,a,valid,CSV"""
     )
     app.dependency_overrides[get_portfolio_parser] = lambda: mock_parser_service
 
-    response = client.post("/upload", files=files)
+    response = client.post("/upload", files=files, auth=("admin", "admin"))
 
     # Assertions
     assert response.status_code == 200
@@ -163,12 +169,15 @@ This,is,not,a,valid,CSV"""
     assert "Error processing portfolio" in response.text
     assert "Invalid CSV format" in response.text
 
+    # Clean up
+    app.dependency_overrides.clear()
+
 
 def test_post_upload_empty_file():
     """Test that POST /upload with empty file shows error message."""
     files = {"file": ("empty.csv", "", "text/csv")}
 
-    response = client.post("/upload", files=files)
+    response = client.post("/upload", files=files, auth=("admin", "admin"))
 
     # Should show error due to empty file
     assert response.status_code == 200

@@ -2,20 +2,66 @@
 
 import json
 import logging
+import secrets
 from decimal import Decimal
 from pathlib import Path
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, Form, Request, UploadFile
+from fastapi import APIRouter, Depends, Form, HTTPException, Request, UploadFile, status
 from fastapi.responses import HTMLResponse
+from fastapi.security import HTTPBasic, HTTPBasicCredentials
 from fastapi.templating import Jinja2Templates
 
+from portfolio_assistant.config import get_settings
 from portfolio_assistant.models.portfolio import Currency
 from portfolio_assistant.services.market_data.yfinance import YFinanceMarketDataService
 from portfolio_assistant.services.parser.degiro import DegiroPortfolioParser
 from portfolio_assistant.services.valuation.engine import ValuationService
 
 logger = logging.getLogger(__name__)
+
+# Security setup for Basic Authentication
+security = HTTPBasic()
+
+
+def verify_credentials(
+    credentials: Annotated[HTTPBasicCredentials, Depends(security)],
+) -> str:
+    """
+    Verify basic authentication credentials against configuration settings.
+
+    Uses secrets.compare_digest to prevent timing attacks.
+
+    Args:
+        credentials: HTTPBasicCredentials from FastAPI security dependency
+
+    Returns:
+        str: The authenticated username
+
+    Raises:
+        HTTPException: 401 Unauthorized if credentials are invalid
+    """
+    settings = get_settings()
+
+    # Retrieve expected values from configuration with fallback defaults
+    expected_username = settings.web_basic_auth_username or "admin"
+    expected_password = settings.web_basic_auth_password or "admin"
+
+    # Use secrets.compare_digest to prevent timing attacks
+    is_correct_username = secrets.compare_digest(
+        credentials.username, expected_username
+    )
+    is_correct_password = secrets.compare_digest(
+        credentials.password, expected_password
+    )
+
+    if not (is_correct_username and is_correct_password):
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Incorrect username or password",
+            headers={"WWW-Authenticate": "Basic"},
+        )
+    return credentials.username
 
 
 def format_currency(value: Decimal) -> str:
@@ -73,7 +119,9 @@ def get_portfolio_parser() -> DegiroPortfolioParser:
 
 
 @router.get("/", response_class=HTMLResponse)
-async def dashboard_get(request: Request) -> HTMLResponse:
+async def dashboard_get(
+    request: Request, username: Annotated[str, Depends(verify_credentials)]
+) -> HTMLResponse:
     """Render the dashboard with upload form."""
     return templates.TemplateResponse(
         request=request,
@@ -83,6 +131,7 @@ async def dashboard_get(request: Request) -> HTMLResponse:
             "total_value_formatted": None,
             "chart_data_json": None,
             "error": None,
+            "username": username,
         },
     )
 
@@ -93,6 +142,7 @@ async def upload_portfolio(
     file: Annotated[UploadFile, Form()],
     valuation_service: Annotated[ValuationService, Depends(get_valuation_service)],
     portfolio_parser: Annotated[DegiroPortfolioParser, Depends(get_portfolio_parser)],
+    username: Annotated[str, Depends(verify_credentials)],
 ) -> HTMLResponse:
     """Handle portfolio CSV upload and display valuation results."""
     try:
@@ -128,6 +178,7 @@ async def upload_portfolio(
                 "total_value_formatted": total_value_formatted,
                 "chart_data_json": chart_data_json,
                 "error": None,
+                "username": username,
             },
         )
 
@@ -142,5 +193,6 @@ async def upload_portfolio(
                 "total_value_formatted": None,
                 "chart_data_json": None,
                 "error": f"Error processing portfolio: {str(e)}",
+                "username": username,
             },
         )
