@@ -10,9 +10,8 @@ WORKDIR /app
 # Copy dependency files
 COPY pyproject.toml uv.lock ./
 
-# Install dependencies using cache mounts for speed
-RUN --mount=type=cache,target=/root/.cache/uv \
-    uv sync --frozen --no-install-project --no-dev
+# Install dependencies (removed cache mount for Google Cloud Build compatibility)
+RUN uv sync --frozen --no-install-project --no-dev
 
 # Runner stage
 FROM python:3.11-slim-bookworm AS runner
