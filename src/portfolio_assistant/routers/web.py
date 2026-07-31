@@ -31,6 +31,9 @@ def verify_credentials(
     Verify basic authentication credentials against configuration settings.
 
     Uses secrets.compare_digest to prevent timing attacks.
+    In production, credentials must be explicitly configured
+    (enforced by Pydantic validator).
+    In non-production environments, falls back to "admin"/"admin" for local testing.
 
     Args:
         credentials: HTTPBasicCredentials from FastAPI security dependency
@@ -43,16 +46,29 @@ def verify_credentials(
     """
     settings = get_settings()
 
-    # Retrieve expected values from configuration with fallback defaults
-    expected_username = settings.web_basic_auth_username or "admin"
-    expected_password = settings.web_basic_auth_password or "admin"
+    # Retrieve expected values from configuration
+    expected_username = settings.web_basic_auth_username
+    expected_password = settings.web_basic_auth_password
+
+    # For non-production environments, allow fallback to "admin"/"admin" for
+    # easy local testing
+    # Production environments are already guarded by Pydantic validator to ensure
+    # explicit configuration
+    if settings.environment != "production":
+        expected_username = expected_username or "admin"
+        expected_password = expected_password or "admin"
+    else:
+        # In production, these should never be None due to Pydantic validation,
+        # but we provide a safety net to ensure they're always strings
+        expected_username = expected_username or ""
+        expected_password = expected_password or ""
 
     # Use secrets.compare_digest to prevent timing attacks
     is_correct_username = secrets.compare_digest(
-        credentials.username, expected_username
+        credentials.username, str(expected_username)
     )
     is_correct_password = secrets.compare_digest(
-        credentials.password, expected_password
+        credentials.password, str(expected_password)
     )
 
     if not (is_correct_username and is_correct_password):

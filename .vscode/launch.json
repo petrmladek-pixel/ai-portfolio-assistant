@@ -16,10 +16,9 @@
             ],
             "jinja": true,
             "env": {
-                "PYTHONPATH": "${workspaceFolder}/src",
-                "WEB_BASIC_AUTH_USERNAME": "admin",
-                "WEB_BASIC_AUTH_PASSWORD": "admin"
+                "PYTHONPATH": "${workspaceFolder}/src"
             },
+            "envFile": "${workspaceFolder}/.env",
             "serverReadyAction": {
                 "action": "openExternally",
                 "pattern": "Uvicorn running on (http://\\S+)"

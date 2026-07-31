@@ -3,7 +3,7 @@
 from functools import lru_cache
 from typing import Literal
 
-from pydantic import Field
+from pydantic import Field, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -41,6 +41,33 @@ class Settings(BaseSettings):
     web_basic_auth_password: str | None = Field(
         default=None, description="Password for web dashboard basic authentication"
     )
+
+    @model_validator(mode="after")
+    def validate_production_security(self) -> "Settings":
+        """
+        Fail-closed validation for production environment.
+
+        In production, basic authentication credentials must be explicitly configured.
+        This ensures we never run in production with default or missing credentials.
+
+        Raises:
+            ValueError: If production environment has missing basic auth credentials
+        """
+        if self.environment == "production":
+            if not self.web_basic_auth_username or not self.web_basic_auth_password:
+                raise ValueError(
+                    "In production, WEB_BASIC_AUTH_USERNAME and "
+                    "WEB_BASIC_AUTH_PASSWORD must be explicitly configured."
+                )
+            if (
+                not self.web_basic_auth_username.strip()
+                or not self.web_basic_auth_password.strip()
+            ):
+                raise ValueError(
+                    "In production, WEB_BASIC_AUTH_USERNAME and WEB_BASIC_AUTH_PASSWORD"
+                    " cannot be empty strings."
+                )
+        return self
 
 
 @lru_cache
