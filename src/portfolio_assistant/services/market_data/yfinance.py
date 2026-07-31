@@ -7,6 +7,7 @@ using the yfinance library to fetch current prices and exchange rates.
 import asyncio
 import logging
 from decimal import ConversionSyntax, Decimal
+from typing import Any
 
 import pandas as pd
 import yfinance as yf
@@ -46,24 +47,13 @@ class YFinanceMarketDataService(BaseMarketDataService):
         if df is None or not isinstance(df, pd.DataFrame) or df.empty:
             return prices
 
-        # Normalize single-ticker vs multi-ticker download results
-        if isinstance(df.columns, pd.MultiIndex):
-            # Multi-ticker downloads return columns with a MultiIndex:
-            # e.g., ('Close', 'AAPL')
-            if "Close" in df.columns.levels[0]:
-                close_df = df["Close"]
-                for ticker in tickers_upper:
-                    if ticker in close_df.columns:
-                        series = close_df[ticker].dropna()
-                        if not series.empty:
-                            prices[ticker] = Decimal(str(series.iloc[-1]))
-        else:
-            # Single ticker download returns columns like:
-            # ['Open', 'High', 'Low', 'Close', ...]
-            if "Close" in df.columns:
-                series = df["Close"].dropna()
-                if not series.empty and len(tickers_upper) == 1:
-                    prices[tickers_upper[0]] = Decimal(str(series.iloc[-1]))
+        for ticker in tickers_upper:
+            try:
+                price = self._extract_close_price(df, ticker)
+                prices[ticker] = price
+            except ValueError:
+                logger.warning(f"Could not fetch price for ticker: {ticker}")
+                continue
 
         # Check for missing tickers
         missing = set(tickers_upper) - set(prices.keys())
@@ -106,35 +96,67 @@ class YFinanceMarketDataService(BaseMarketDataService):
             progress=False,
         )
 
-        if (
-            df is not None
-            and isinstance(df, pd.DataFrame)
-            and not df.empty
-            and "Close" in df.columns
-        ):
-            series = df["Close"].dropna()
-            if not series.empty:
-                try:
-                    # Get the last value from the series, ensuring it's a scalar
-                    last_value = series.iloc[-1]
+        if df is None or not isinstance(df, pd.DataFrame) or df.empty:
+            raise ValueError(
+                f"Could not fetch exchange rate for {from_curr} to {to_curr}"
+            )
 
-                    # Handle different types that yfinance might return
-                    if hasattr(last_value, "item"):  # pandas Series
-                        rate_value = last_value.item()
-                    elif isinstance(last_value, (int, float)):
-                        rate_value = last_value
-                    else:
-                        # Try to extract scalar value from various pandas types
-                        rate_value = float(last_value)
+        try:
+            return self._extract_close_price(df, ticker)
+        except ValueError as e:
+            raise ValueError(
+                f"Could not fetch exchange rate for {from_curr} to {to_curr}"
+            ) from e
 
-                    return Decimal(str(rate_value))
-                except (ValueError, ConversionSyntax, AttributeError, TypeError) as e:
-                    logger.error(
-                        f"Failed to parse exchange rate {from_curr}->{to_curr}: "
-                        f"{series.iloc[-1]} (type: {type(series.iloc[-1])}) ({e})"
-                    )
-                    raise ValueError(
-                        f"Could not parse exchange rate for {from_curr} to {to_curr}"
-                    ) from e
+    def _extract_close_price(self, df: Any, ticker: str) -> Decimal:
+        """Extracts the close price from a yfinance DataFrame, handling MultiIndex.
 
-        raise ValueError(f"Could not fetch exchange rate for {from_curr} to {to_curr}")
+        Args:
+            df (pd.DataFrame): The DataFrame returned by yf.download.
+            ticker (str): The ticker symbol to extract the price for.
+
+        Returns:
+            Decimal: The close price as a Decimal.
+
+        Raises:
+            ValueError: If the close price cannot be extracted.
+        """
+        close_data = None
+
+        if isinstance(df.columns, pd.MultiIndex):
+            if "Close" in df.columns.levels[0] and ticker in df.columns.levels[1]:
+                close_data = df["Close"][ticker]
+        else:
+            if "Close" in df.columns:
+                if ticker in df.columns:
+                    close_data = df[ticker]
+                else:
+                    close_data = df["Close"]
+
+        if close_data is None or close_data.empty:
+            raise ValueError(f"No close price data found for {ticker}")
+
+        series = close_data.dropna()
+        if series.empty:
+            raise ValueError(f"No valid close price found for {ticker}")
+
+        try:
+            last_value = series.iloc[-1]
+            if hasattr(last_value, "item"):
+                rate_value = last_value.item()
+            elif isinstance(last_value, (int, float)):
+                rate_value = last_value
+            else:
+                rate_value = float(last_value)
+            return Decimal(str(rate_value))
+        except (
+            ValueError,
+            ConversionSyntax,
+            AttributeError,
+            TypeError,
+        ) as e:
+            logger.error(
+                f"Failed to parse close price for {ticker}: {series.iloc[-1]} "
+                f"(type: {type(series.iloc[-1])}) ({e})"
+            )
+            raise ValueError(f"Could not parse close price for {ticker}") from e

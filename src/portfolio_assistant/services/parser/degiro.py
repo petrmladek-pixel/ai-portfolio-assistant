@@ -62,7 +62,7 @@ class DegiroPortfolioParser(BasePortfolioParser):
         ):
             raise ValueError(
                 "Missing essential columns in the CSV file. Required: Product Name, "
-                "Symbol/ISIN, Quantity, Break-even Price."
+                "Symbol/ISIN, Quantity, Average Price"
             )
 
         positions: list[StockPosition] = []
@@ -72,12 +72,10 @@ class DegiroPortfolioParser(BasePortfolioParser):
 
             row_data = dict(zip(headers, row, strict=False))
 
-            # Filter out cash balances
+            # Filter out cash balances (support both English and Czech)
             product_name = row_data.get(header_map["product_name"], "").strip()
-            if any(
-                cash_keyword in product_name
-                for cash_keyword in ["Cash", "EUR Cash", "Flatex Cash", "DEGIRO Cash"]
-            ):
+            product_name_lower = product_name.lower()
+            if "cash" in product_name_lower or "hotovost" in product_name_lower:
                 continue
 
             try:
@@ -142,7 +140,7 @@ class DegiroPortfolioParser(BasePortfolioParser):
                 "closing price",
             ]:
                 header_map["average_price"] = header
-            elif normalized_header in ["měna", "valuta", "currency"]:
+            elif normalized_header in ["měna", "valuta", "currency, hodnota"]:
                 header_map["currency"] = header
         return header_map
 
