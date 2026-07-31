@@ -7,7 +7,6 @@ for analyzing anonymized portfolio data.
 import os
 
 from google import genai
-from google.genai.errors import ClientError, ServerError
 
 from portfolio_assistant.models.portfolio import AnonymizedPortfolio
 
@@ -77,10 +76,10 @@ class GeminiAIService:
             )
 
             return response.text or ""
+        except Exception:
+            import traceback
 
-        except (ClientError, ServerError, Exception):
-            # Log the error for debugging, but return a user-friendly message
-            # In production, you might want to log the full error details
+            traceback.print_exc()
             return (
                 "AI Analysis is currently unavailable due to an external service error."
             )
