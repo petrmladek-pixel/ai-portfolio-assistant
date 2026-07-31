@@ -11,6 +11,7 @@ from fastapi.responses import HTMLResponse
 from fastapi.templating import Jinja2Templates
 
 from portfolio_assistant.models.portfolio import Currency
+from portfolio_assistant.services.ai.gemini import GeminiAIService
 from portfolio_assistant.services.market_data.yfinance import YFinanceMarketDataService
 from portfolio_assistant.services.parser.degiro import DegiroPortfolioParser
 from portfolio_assistant.services.valuation.engine import ValuationService
@@ -69,6 +70,11 @@ def get_valuation_service(
     return ValuationService(market_data_service)
 
 
+def get_gemini_service() -> GeminiAIService:
+    """FastAPI dependency: Get Gemini AI service instance."""
+    return GeminiAIService()
+
+
 def get_portfolio_parser() -> DegiroPortfolioParser:
     """FastAPI dependency: Get portfolio parser instance."""
     return DegiroPortfolioParser()
@@ -88,6 +94,7 @@ async def dashboard_get(
             "chart_data_json": None,
             "error": None,
             "username": username,
+            "ai_analysis_markdown": "",
         },
     )
 
@@ -98,6 +105,7 @@ async def upload_portfolio(
     file: Annotated[UploadFile, Form()],
     valuation_service: Annotated[ValuationService, Depends(get_valuation_service)],
     portfolio_parser: Annotated[DegiroPortfolioParser, Depends(get_portfolio_parser)],
+    gemini_service: Annotated[GeminiAIService, Depends(get_gemini_service)],
     username: Annotated[str, Depends(verify_credentials)],
 ) -> HTMLResponse:
     """Handle portfolio CSV upload and display valuation results."""
@@ -109,6 +117,12 @@ async def upload_portfolio(
         # Value the portfolio
         valued_portfolio = await valuation_service.value_portfolio_async(
             imported_portfolio, target_currency=Currency.CZK
+        )
+
+        # Generate AI analysis
+        anonymized_portfolio = valued_portfolio.to_anonymized()
+        ai_analysis_markdown = await gemini_service.analyze_portfolio(
+            anonymized_portfolio
         )
 
         # Prepare chart data
@@ -135,6 +149,7 @@ async def upload_portfolio(
                 "chart_data_json": chart_data_json,
                 "error": None,
                 "username": username,
+                "ai_analysis_markdown": ai_analysis_markdown,
             },
         )
 
