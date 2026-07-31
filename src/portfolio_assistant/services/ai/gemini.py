@@ -13,6 +13,9 @@ from portfolio_assistant.models.portfolio import AnonymizedPortfolio
 
 logger = logging.getLogger(__name__)
 
+# Constants
+DEFAULT_GEMINI_MODEL = "gemini-2.5-flash"
+
 
 class GeminiAIService:
     """Service for analyzing portfolios using Google Gemini AI.
@@ -34,6 +37,9 @@ class GeminiAIService:
         settings = get_settings()
         self.api_key = api_key or settings.gemini_api_key
 
+        # Initialize client for connection pooling if API key is available
+        self._client = genai.Client(api_key=self.api_key) if self.api_key else None
+
     async def analyze_portfolio(self, portfolio: AnonymizedPortfolio) -> str:
         """Analyze a portfolio using Gemini AI.
 
@@ -44,11 +50,8 @@ class GeminiAIService:
             str: The AI-generated analysis in Czech, or an error message if
                 the analysis cannot be performed.
         """
-        # Get settings for API key and model configuration
-        settings = get_settings()
-
-        # Check if API key is available
-        if not self.api_key and not settings.gemini_api_key:
+        # Check if client is available (API key was configured)
+        if not self._client:
             return (
                 "AI Analysis is currently unavailable because the Gemini API key "
                 "is not configured."
@@ -77,12 +80,12 @@ class GeminiAIService:
                 "Formátuj výstup jako profesionální zprávu s nadpisy a odstavci."
             )
 
-            # Get model name from settings with fallback
-            model_name = settings.gemini_model or "gemini-2.5-flash"
+            # Get model name from settings with fallback to constant
+            settings = get_settings()
+            model_name = settings.gemini_model or DEFAULT_GEMINI_MODEL
 
-            # Initialize the client and generate content
-            client = genai.Client(api_key=self.api_key)
-            response = await client.aio.models.generate_content(
+            # Use the pre-initialized client for connection pooling
+            response = await self._client.aio.models.generate_content(
                 model=model_name, contents=prompt
             )
 

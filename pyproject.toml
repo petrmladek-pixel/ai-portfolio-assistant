@@ -38,7 +38,10 @@ packages = ["src/portfolio_assistant"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
-filterwarnings = []
+filterwarnings = [
+    "ignore:.*_UnionGenericAlias.*:DeprecationWarning",
+    "ignore:.*google.genai.*:DeprecationWarning"
+]
 
 [tool.ruff]
 target-version = "py311"
