@@ -72,12 +72,10 @@ class DegiroPortfolioParser(BasePortfolioParser):
 
             row_data = dict(zip(headers, row, strict=False))
 
-            # Filter out cash balances
+            # Filter out cash balances (support both English and Czech)
             product_name = row_data.get(header_map["product_name"], "").strip()
-            if any(
-                cash_keyword in product_name
-                for cash_keyword in ["CASH & CASH FUND & FTX CASH (EUR)"]
-            ):
+            product_name_lower = product_name.lower()
+            if "cash" in product_name_lower or "hotovost" in product_name_lower:
                 continue
 
             try:
