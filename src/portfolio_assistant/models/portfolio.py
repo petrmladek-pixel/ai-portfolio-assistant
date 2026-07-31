@@ -30,15 +30,18 @@ class AnonymizedPosition(BaseModel):
     """Represents a privacy-preserving stock position with relative weight.
 
     Attributes:
-        ticker (str): The stock ticker symbol (e.g., AAPL). Must be non-empty.
-            Automatically stripped of whitespace and converted to uppercase.
+    ticker (str): The stock ticker symbol (e.g., AAPL). Must be non-empty,
+        1-15 characters, and contain only letters, numbers, dots, and hyphens.
+        Automatically stripped of whitespace and converted to uppercase.
         name (str | None): The name of the company or stock.
         weight (Decimal): The percentage weight of this position in the portfolio.
             Must be strictly greater than 0 and less than or equal to 1.
         currency (Currency): The currency of the stock position.
     """
 
-    ticker: str = Field(..., min_length=1)
+    ticker: str = Field(
+        ..., min_length=1, max_length=15, pattern=r"^[A-Za-z0-9.\-]{1,15}$"
+    )
     name: str | None = None
     weight: Decimal = Field(..., gt=0, le=1)
     currency: Currency
@@ -83,8 +86,9 @@ class StockPosition(BaseModel):
     """Represents a validated stock position in a portfolio.
 
     Attributes:
-        ticker (str): The stock ticker symbol (e.g., AAPL). Must be non-empty.
-            Automatically stripped of whitespace and converted to uppercase.
+    ticker (str): The stock ticker symbol (e.g., AAPL). Must be non-empty,
+        1-15 characters, and contain only letters, numbers, dots, and hyphens.
+        Automatically stripped of whitespace and converted to uppercase.
         name (Optional[str]): The name of the company or stock.
         quantity (Decimal): The amount of stock owned. Must be strictly greater than 0.
         average_price (Decimal): The average purchase price. Must be strictly greater
@@ -92,7 +96,9 @@ class StockPosition(BaseModel):
         currency (Currency): The currency of the stock position.
     """
 
-    ticker: str = Field(..., min_length=1)
+    ticker: str = Field(
+        ..., min_length=1, max_length=15, pattern=r"^[A-Za-z0-9.\-]{1,15}$"
+    )
     name: str | None = None
     quantity: Decimal = Field(..., gt=0)
     average_price: Decimal = Field(..., gt=0)

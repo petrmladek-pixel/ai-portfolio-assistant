@@ -8,6 +8,7 @@ import os
 
 from google import genai
 
+from portfolio_assistant.config import get_settings
 from portfolio_assistant.models.portfolio import AnonymizedPortfolio
 
 
@@ -20,14 +21,8 @@ class GeminiAIService:
     """
 
     def __init__(self, api_key: str | None = None) -> None:
-        """Initialize the Gemini AI service.
-
-        Args:
-            api_key (Optional[str]): The Gemini API key. If None,
-                the service will attempt to use the GEMINI_API_KEY
-                environment variable.
-        """
-        self.api_key = api_key
+        # Explicitly pull from env if not provided
+        self.api_key = api_key or os.environ.get("GEMINI_API_KEY")
 
     async def analyze_portfolio(self, portfolio: AnonymizedPortfolio) -> str:
         """Analyze a portfolio using Gemini AI.
@@ -69,10 +64,13 @@ class GeminiAIService:
                 "Formátuj výstup jako profesionální zprávu s nadpisy a odstavci."
             )
 
+            # Get model name from settings with fallback
+            model_name = get_settings().gemini_model or "gemini-2.5-flash"
+
             # Initialize the client and generate content
             client = genai.Client(api_key=self.api_key)
             response = await client.aio.models.generate_content(
-                model="gemini-2.5-flash", contents=prompt
+                model=model_name, contents=prompt
             )
 
             return response.text or ""
