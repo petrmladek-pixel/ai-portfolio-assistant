@@ -6,6 +6,8 @@
     <title>Portfolio Dashboard</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/dompurify/dist/purify.min.js"></script>
 </head>
 <body class="bg-gray-100 min-h-screen">
     <div class="container mx-auto px-4 py-8">
@@ -99,7 +101,15 @@
             </div>
         </div>
 
+        <div class="max-w-4xl mx-auto bg-white rounded-lg shadow-md p-6 mt-6">
+            <h2 class="text-xl font-bold text-gray-800 mb-4">AI Analýza Portfolia</h2>
+            <div id="ai-analysis-rendered" class="prose max-w-none text-gray-700">
+                <p class="text-gray-500 italic">Analýza se načítá nebo nebyla vygenerována...</p>
+            </div>
+        </div>
+
         <div id="chart-data" data-chart='{{ chart_data_json }}' class="hidden"></div>
+        <div id="ai-analysis-data" style="display: none;" data-raw-markdown="{{ ai_analysis_markdown }}"></div>
 
         <script>
             // Initialize the chart when the page loads
@@ -141,6 +151,30 @@
                         }
                     }
                 });
+
+                // Initialize AI analysis rendering
+                const aiAnalysisEl = document.getElementById('ai-analysis-data');
+                const aiAnalysisRenderedEl = document.getElementById('ai-analysis-rendered');
+
+                if (aiAnalysisEl && aiAnalysisRenderedEl) {
+                    const rawMarkdown = aiAnalysisEl.dataset.rawMarkdown;
+
+                    if (rawMarkdown && rawMarkdown.trim()) {
+                        try {
+                            // Parse markdown and sanitize HTML
+                            const parsedHtml = marked.parse(rawMarkdown);
+                            const cleanHtml = DOMPurify.sanitize(parsedHtml);
+
+                            // Update the rendered content
+                            aiAnalysisRenderedEl.innerHTML = cleanHtml;
+                        } catch (error) {
+                            console.error('Failed to render AI analysis:', error);
+                            aiAnalysisRenderedEl.innerHTML = (
+                                '<p class="text-gray-500 italic">Analýza se načítá nebo nebyla vygenerována...</p>'
+                            );
+                        }
+                    }
+                }
             });
         </script>
         {% endif %}
