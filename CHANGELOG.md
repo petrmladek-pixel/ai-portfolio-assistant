@@ -15,6 +15,29 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Centralized configurations in `pyproject.toml`.
 - GitHub Actions CI pipeline with automated linting, typing, and testing.
 
+## v0.3.0 (2026-07-31)
+
+### Feat
+
+- **gemini**: enhance Gemini AI service with environment variable fallback for API key and configurable model name
+- **ai**: integrate Google Gemini AI service for portfolio analysis
+- **auth**: implement basic authentication logic in a separate dependencies module
+- **auth**: enforce explicit configuration of basic auth credentials in production
+- **auth**: add basic authentication for web dashboard with configurable credentials
+- **web**: add logging for portfolio upload errors
+- **pre-commit**: add Commitizen for enforcing commit message conventions
+- **web**: add web routes for portfolio dashboard with upload functionality and chart display
+
+### Fix
+
+- **ai**: improve error handling in Gemini AI service analysis
+
+### Refactor
+
+- **gemini**: enhance GeminiAIService with connection pooling and improved API key handling
+- **gemini**: improve API key handling and logging in GeminiAIService
+- **yfinance**: simplify price extraction logic and improve error handling
+
 ## v0.2.0 (2026-07-29)
 
 ### Feat
