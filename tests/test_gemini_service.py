@@ -111,9 +111,9 @@ async def test_analyze_portfolio_success(sample_portfolio: AnonymizedPortfolio) 
 
         # Model name should be the one we mocked
         assert call_args[1]["model"] == "gemini-2.5-flash"
-        assert "AAPL: 50.0%" in call_args[1]["contents"]
-        assert "MSFT: 30.0%" in call_args[1]["contents"]
-        assert "GOOGL: 20.0%" in call_args[1]["contents"]
+        assert "- AAPL (Apple Inc.): 50.00%" in call_args[1]["contents"]
+        assert "- MSFT (Microsoft Corporation): 30.00%" in call_args[1]["contents"]
+        assert "- GOOGL (Alphabet Inc.): 20.00%" in call_args[1]["contents"]
 
 
 @pytest.mark.asyncio

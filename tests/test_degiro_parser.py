@@ -42,7 +42,7 @@ def test_degiro_parser_cz(degiro_parser, mock_degiro_csv_cz):
         (p for p in portfolio.positions if p.name == "ADR ON SONY GROUP CORP"), None
     )
     assert pos_sony is not None
-    assert pos_sony.ticker == "US8356993076"
+    assert pos_sony.ticker == "SONY"
     assert pos_sony.name == "ADR ON SONY GROUP CORP"
     assert pos_sony.quantity == Decimal("2")
     assert pos_sony.average_price == Decimal("22.29")
@@ -79,7 +79,7 @@ def test_degiro_parser_with_bom(degiro_parser, mock_degiro_csv_with_bom):
 
     # Test the position with BOM handling
     pos = portfolio.positions[0]
-    assert pos.ticker == "US8356993076"
+    assert pos.ticker == "SONY"
     assert pos.name == "ADR ON SONY GROUP CORP"
     assert pos.quantity == Decimal("1")
     assert pos.average_price == Decimal("100.00")
