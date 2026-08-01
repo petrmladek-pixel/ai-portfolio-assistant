@@ -41,7 +41,7 @@ jobs:
       - name: Run Commitizen Bump
         run: |
           # cz bump updates pyproject.toml, generates CHANGELOG.md, and creates a git tag
-          uv run cz bump --yes
+          uv run cz --no-raise 21 bump --yes
 
       - name: Push changes and tags
         run: |
