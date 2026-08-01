@@ -1,0 +1,49 @@
+name: Bump Version and Tag
+
+on:
+  push:
+    branches:
+      - main
+    # Ignore commits created by the action bot to avoid infinite loops
+    paths-ignore:
+      - 'pyproject.toml'
+      - 'CHANGELOG.md'
+
+jobs:
+  bump:
+    runs-on: ubuntu-latest
+    # Required to push commits and tags back to the repository
+    permissions:
+      contents: write
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          # fetch-depth: 0 is critical for commitizen to determine the version from git history
+          fetch-depth: 0
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Install uv and Set up Python
+        uses: astral-sh/setup-uv@v5
+        with:
+          python-version: "3.11"
+          enable-cache: true
+
+      - name: Configure Git
+        run: |
+          git config --local user.email "action@github.com"
+          git config --local user.name "GitHub Action Bot"
+
+      - name: Install dependencies (including Commitizen)
+        run: uv sync --all-extras --dev
+
+      - name: Run Commitizen Bump
+        run: |
+          # cz bump updates pyproject.toml, generates CHANGELOG.md, and creates a git tag
+          uv run cz bump --yes
+
+      - name: Push changes and tags
+        run: |
+          # Safely push the version bump commit and the created git tag back to main
+          git push origin main --follow-tags
