@@ -19,6 +19,8 @@ ISIN_TO_TICKER = {
     "NL0012046714": "PRX.AS",  # Prosus N.V.
     "US30303M1027": "META",  # Meta Platforms Inc.
     "US02079K1079": "GOOGL",  # Alphabet Inc. Class A
+    "US8356993076": "SONY",  # Sony Group Corp ADR
+    "IE00BP3QZB59": "IWVL.L",  # iShares Edge MSCI World Value Factor UCITS ETF
     "IE00BMTN5C84": "EQAC.AS",  # iShares Core S&P 500 UCITS ETF EUR Acc
     "LU0252633754": "VWCE.DE",  # Vanguard FTSE All-World UCITS ETF
     "CZ0009009145": "CEZ.PR",  # CEZ AS

@@ -60,7 +60,7 @@ class GeminiAIService:
         try:
             # Build the prompt with ticker symbols and percentage weights
             positions_text = "\n".join(
-                f"{pos.ticker}: {float(pos.weight * 100):.1f}%"
+                f"- {pos.ticker} ({pos.name}): {pos.weight * 100:.2f}%"
                 for pos in portfolio.positions
             )
 
@@ -68,10 +68,13 @@ class GeminiAIService:
                 "Analyzuj následující investiční portfolio a poskytni "
                 "profesionální hodnocení v češtině:\n\n"
                 f"Portfolio obsahuje následující pozice:\n{positions_text}\n\n"
+                "Pro přesnou identifikaci aktiv a jejich profilů vždy "
+                "používej poskytnuté názvy v závorkách u jednotlivých tickerů.\n\n"
                 "Proveď komplexní analýzu zahrnující:\n"
                 "1. Diversifikaci - jak je portfolio rozložené napříč "
                 "sektory a regiony\n"
-                "2. Sektorové a geografické rozložení (odhadni na základě tickerů)\n"
+                "2. Sektorové a geografické rozložení (odhadni na základě "
+                "poskytnutých názvů a tickerů)\n"
                 "3. Potenciální rizika a silné stránky\n"
                 "4. Obecná doporučení pro zlepšení\n\n"
                 "Na závěr přidej standardní vzdělávací disclaimer, že tato "
