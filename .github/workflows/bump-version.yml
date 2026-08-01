@@ -48,5 +48,9 @@ jobs:
 
       - name: Push changes and tags
         run: |
-          # Safely push utilizing HEAD:main, which is more robust in CI environments
-          git push origin HEAD:main --follow-tags
+          # Only push if there are actual local commits (e.g., version was bumped)
+          if [ "$(git rev-parse HEAD)" != "$(git rev-parse origin/main)" ]; then
+            git push origin HEAD:main --follow-tags
+          else
+            echo "No version changes detected. Skipping push."
+          fi
