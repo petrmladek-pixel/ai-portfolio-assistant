@@ -82,6 +82,21 @@ class AnonymizedPortfolio(BaseModel):
     positions: list[AnonymizedPosition]
 
 
+class ParsedPosition(BaseModel):
+    """Unified internal position model for parsed portfolio data."""
+
+    ticker: str = Field(..., description="Normalized ticker symbol (e.g., AAPL)")
+    name: str = Field(..., description="Asset name")
+    quantity: Decimal = Field(..., description="Number of shares owned")
+    average_price_czk: Decimal = Field(..., description="Average purchase price in CZK")
+    total_value_czk: Decimal = Field(
+        ..., description="Total position value in CZK (quantity * average_price_czk)"
+    )
+    weight: Decimal = Field(
+        ..., description="Percentage weight of the asset in this specific portfolio"
+    )
+
+
 class StockPosition(BaseModel):
     """Represents a validated stock position in a portfolio.
 

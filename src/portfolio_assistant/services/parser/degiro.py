@@ -1,3 +1,4 @@
+import asyncio
 import csv
 import re
 from datetime import datetime
@@ -9,37 +10,22 @@ from portfolio_assistant.models.portfolio import (
     ImportedPortfolio,
     StockPosition,
 )
+from portfolio_assistant.services.isin_resolver import YahooISINResolver
 from portfolio_assistant.services.parser.base import BasePortfolioParser
-
-ISIN_TO_TICKER = {
-    "US0378331005": "AAPL",  # Apple Inc.
-    "US5949181045": "MSFT",  # Microsoft Corp.
-    "US0231351067": "AMZN",  # Amazon.com Inc.
-    "US88160R1014": "TSLA",  # Tesla Inc.
-    "NL0012046714": "PRX.AS",  # Prosus N.V.
-    "US30303M1027": "META",  # Meta Platforms Inc.
-    "US02079K1079": "GOOGL",  # Alphabet Inc. Class A
-    "US8356993076": "SONY",  # Sony Group Corp ADR
-    "IE00BP3QZB59": "IWVL.L",  # iShares Edge MSCI World Value Factor UCITS ETF
-    "IE00BMTN5C84": "EQAC.AS",  # iShares Core S&P 500 UCITS ETF EUR Acc
-    "LU0252633754": "VWCE.DE",  # Vanguard FTSE All-World UCITS ETF
-    "CZ0009009145": "CEZ.PR",  # CEZ AS
-    "CZ0008013711": "KOMB.PR",  # Komercni Banka AS
-    "CZ0005128607": "MONET.PR",  # MONETA Money Bank AS
-    "CZ0008419616": "ERSTE.PR",  # ERSTE GROUP BANK AG
-    "CZ0009008980": "VIG.PR",  # Vienna Insurance Group AG
-    "CZ0009010175": "PILULKA.PR",  # Pilulka Lékárny a.s.
-    "CZ0009000102": "KRAL.PR",  # KRALOPOLE, a.s.
-    "CZ0009009947": "PFNS.PR",  # Philip Morris CR a.s.
-}
 
 
 class DegiroPortfolioParser(BasePortfolioParser):
+    def __init__(self, isin_resolver: YahooISINResolver | None = None) -> None:
+        self.isin_resolver = isin_resolver or YahooISINResolver()
+
     @property
     def broker_name(self) -> str:
         return "DEGIRO"
 
     def parse_sync(self, file_content: bytes) -> ImportedPortfolio:
+        return asyncio.run(self.parse_async_internal(file_content))
+
+    async def parse_async_internal(self, file_content: bytes) -> ImportedPortfolio:
         # Decode with UTF-8, handling BOM
         decoded_content = file_content.decode("utf-8-sig")
         lines = decoded_content.strip().splitlines()
@@ -96,7 +82,7 @@ class DegiroPortfolioParser(BasePortfolioParser):
                 continue
 
             symbol_isin = row_data.get(header_map["symbol_isin"], "").strip()
-            ticker = self._resolve_ticker(symbol_isin)
+            ticker = await self._resolve_ticker(symbol_isin)
 
             # Determine currency
             currency = self._determine_currency(row_data, header_map)
@@ -151,19 +137,19 @@ class DegiroPortfolioParser(BasePortfolioParser):
         cleaned_value = value.replace(",", ".")
         return Decimal(cleaned_value)
 
-    def _resolve_ticker(self, symbol_isin: str) -> str:
-        """Resolves ticker from Symbol/ISIN using a mapping or extracting from
-        string."""
-        if not symbol_isin:  # Handle empty string for safety
+    async def _resolve_ticker(self, symbol_isin: str) -> str:
+        """Resolves ticker from Symbol/ISIN using the YahooISINResolver or extracting
+        from string.
+        """
+        if not symbol_isin:
             return "N/A"
 
-        # Check if it's a known ISIN
-        if symbol_isin in ISIN_TO_TICKER:
-            return ISIN_TO_TICKER[symbol_isin]
-
         # ISIN pattern: 2 letters, 10 alphanumeric chars (e.g., US0378331005)
-        if re.match(r"^[A-Z]{2}[A-Z0-9]{9}[0-9]$", symbol_isin, re.IGNORECASE):
-            return symbol_isin  # It's an ISIN, use it as is if not in map
+        if re.fullmatch(r"^[A-Z]{2}[A-Z0-9]{9}[0-9]$", symbol_isin, re.IGNORECASE):
+            try:
+                return await self.isin_resolver.resolve(symbol_isin)
+            except ValueError:  # Invalid ISIN format caught by resolver
+                return symbol_isin.upper()
 
         # Try to extract ticker from combined symbol/ISIN (e.g., "AAPL - US0378331005")
         match = re.match(
@@ -175,7 +161,7 @@ class DegiroPortfolioParser(BasePortfolioParser):
             return match.group(1).strip().upper()  # Return the ticker part
 
         # Fallback to using the symbol_isin itself if it looks like a ticker
-        if re.match(r"^[A-Z0-9.-]{1,10}$", symbol_isin, re.IGNORECASE):
+        if re.fullmatch(r"^[A-Z0-9.-]{1,10}$", symbol_isin, re.IGNORECASE):
             return symbol_isin.upper()
 
         return symbol_isin.upper()  # Default fallback
