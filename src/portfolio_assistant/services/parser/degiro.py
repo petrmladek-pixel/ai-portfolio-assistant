@@ -56,7 +56,7 @@ class DegiroPortfolioParser(BasePortfolioParser):
                 "closing price",
             ]:
                 header_map["average_price"] = header
-            elif norm in ["měna", "valuta", "currency"]:
+            elif norm in ["měna", "valuta", "currency", "hodnota", "value"]:
                 header_map["currency"] = header
         return header_map
 

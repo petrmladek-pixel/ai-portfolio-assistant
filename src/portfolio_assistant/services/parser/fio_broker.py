@@ -5,7 +5,6 @@ CP1250/UTF-8 encodings, semicolon delimiters, and Czech decimal formatting.
 """
 
 import csv
-import sys
 from collections.abc import Iterator
 from datetime import datetime
 from decimal import Decimal
@@ -69,7 +68,7 @@ class FioBrokerPortfolioParser(BasePortfolioParser):
                 quantity = self.clean_decimal(quantity_str)
                 average_price = self.clean_decimal(price_str)
             except Exception:
-                sys.stderr.write("Skipping row due to numeric parsing error\n")
+                print("Skipping row due to numeric parsing error")
                 continue
 
             if quantity <= 0 or average_price <= 0:

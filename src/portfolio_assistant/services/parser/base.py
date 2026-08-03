@@ -92,6 +92,9 @@ class BasePortfolioParser(ABC):
 
         Returns:
             Decimal: The cleaned and converted decimal value.
+
+        Raises:
+            decimal.InvalidOperation: If the value cannot be parsed as a Decimal.
         """
         if not value or not value.strip():
             return Decimal("0.00")
@@ -104,10 +107,7 @@ class BasePortfolioParser(ABC):
             parts = cleaned.split(".")
             cleaned = "".join(parts[:-1]) + "." + parts[-1]
 
-        try:
-            return Decimal(cleaned)
-        except Exception:
-            return Decimal("0.00")
+        return Decimal(cleaned)
 
     def _prepare_csv_reader(
         self,
