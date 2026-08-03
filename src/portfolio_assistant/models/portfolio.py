@@ -103,6 +103,7 @@ class StockPosition(BaseModel):
     quantity: Decimal = Field(..., gt=0)
     average_price: Decimal = Field(..., gt=0)
     currency: Currency
+    weight: Decimal | None = Field(default=None, gt=0, le=1)
 
     @field_validator("ticker", mode="before")
     @classmethod

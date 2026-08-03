@@ -13,22 +13,27 @@
     <div class="container mx-auto px-4 py-8">
         <h1 class="text-3xl font-bold text-center mb-8 text-gray-800">Portfolio Dashboard</h1>
 
-        <div class="max-w-2xl mx-auto bg-white rounded-lg shadow-md p-6 mb-8">
-            <h2 class="text-xl font-semibold mb-4 text-gray-700">Upload Portfolio CSV</h2>
-            <form action="/upload" method="post" enctype="multipart/form-data" class="space-y-4">
-                <div>
-                    <label for="file" class="block text-sm font-medium text-gray-700 mb-1">CSV File</label>
-                    <input type="file" name="file" id="file" accept=".csv"
-                           class="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
-                           required>
-                    <p class="mt-1 text-sm text-gray-500">Upload your DEGIRO portfolio CSV file</p>
-                </div>
-                <button type="submit"
-                        class="w-full bg-indigo-600 text-white py-2 px-4 rounded-md hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500">
-                    Upload and Analyze
-                </button>
-            </form>
-        </div>
+         <div class="max-w-2xl mx-auto bg-white rounded-lg shadow-md p-6 mb-8">
+             <h2 class="text-xl font-semibold mb-4 text-gray-700">Upload Portfolio CSV</h2>
+             <form action="/upload" method="post" enctype="multipart/form-data" class="space-y-4">
+                 <div>
+                     <label for="degiro_file" class="block text-sm font-medium text-gray-700 mb-1">DEGIRO CSV File</label>
+                     <input type="file" name="degiro_file" id="degiro_file" accept=".csv"
+                            class="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500">
+                     <p class="mt-1 text-sm text-gray-500">Upload your DEGIRO portfolio CSV file</p>
+                 </div>
+                 <div>
+                     <label for="fio_file" class="block text-sm font-medium text-gray-700 mb-1">Fio e-Broker CSV File</label>
+                     <input type="file" name="fio_file" id="fio_file" accept=".csv"
+                            class="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500">
+                     <p class="mt-1 text-sm text-gray-500">Upload your Fio e-Broker portfolio CSV file</p>
+                 </div>
+                 <button type="submit"
+                         class="w-full bg-indigo-600 text-white py-2 px-4 rounded-md hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500">
+                     Upload and Analyze
+                 </button>
+             </form>
+         </div>
 
         {% if error %}
         <div class="max-w-4xl mx-auto bg-red-50 border-l-4 border-red-500 p-4 mb-8">

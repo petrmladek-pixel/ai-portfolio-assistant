@@ -104,11 +104,11 @@ def test_post_upload_valid_csv():
 Apple Inc.,AAPL,10,150.50,USD
 Microsoft Corp.,MSFT,5,300.25,USD"""
 
-    files = {"file": ("portfolio.csv", csv_content, "text/csv")}
+    files = {"degiro_file": ("portfolio.csv", csv_content, "text/csv")}
 
     # Create mock instances
     mock_parser_instance = MagicMock()
-    mock_parser_instance.parse_sync.return_value = mock_imported_portfolio
+    mock_parser_instance.parse_async = AsyncMock(return_value=mock_imported_portfolio)
 
     mock_val_instance = MagicMock()
     mock_val_instance.value_portfolio_async = AsyncMock(
@@ -152,11 +152,11 @@ def test_post_upload_invalid_csv():
     csv_content = """Invalid,Header,Format
 This,is,not,a,valid,CSV"""
 
-    files = {"file": ("invalid.csv", csv_content, "text/csv")}
+    files = {"degiro_file": ("invalid.csv", csv_content, "text/csv")}
 
     # Override dependencies in the FastAPI application
     mock_parser_service = MagicMock()
-    mock_parser_service.parse_sync = MagicMock(
+    mock_parser_service.parse_async = AsyncMock(
         side_effect=ValueError("Invalid CSV format")
     )
     app.dependency_overrides[get_portfolio_parser] = lambda: mock_parser_service
@@ -175,7 +175,7 @@ This,is,not,a,valid,CSV"""
 
 def test_post_upload_empty_file():
     """Test that POST /upload with empty file shows error message."""
-    files = {"file": ("empty.csv", "", "text/csv")}
+    files = {"degiro_file": ("empty.csv", "", "text/csv")}
 
     response = client.post("/upload", files=files, auth=("admin", "admin"))
 
