@@ -61,22 +61,41 @@ class BasePortfolioParser(ABC):
         """
         return await asyncio.to_thread(self.parse_sync, file_content)
 
-    def safe_decode(
-        self, file_content: bytes, fallback_encoding: str = "windows-1250"
-    ) -> str:
-        """Safely decode bytes to string with UTF-8 and fallback encoding.
+    def safe_decode(self, file_content: bytes) -> str:
+        """Safely decode bytes to string, automatically detecting the encoding.
+
+        Uses the 'charset-normalizer' library (already installed in the project
+        as a dependency of httpx2) to detect the best encoding match, with a
+        robust manual fallback chain (utf-8-sig -> windows-1250 -> latin1)
+        if detection fails.
 
         Args:
             file_content: The raw binary content to decode.
-            fallback_encoding: The encoding to use if UTF-8 fails.
 
         Returns:
             str: The decoded string content.
         """
+        import charset_normalizer
+
+        # 1. Attempt automatic encoding detection
+        try:
+            match = charset_normalizer.from_bytes(file_content).best()
+            if match is not None:
+                # charset-normalizer automatically handles BOM markers
+                return str(match)
+        except Exception:
+            # Fall back to manual chain on unexpected detection error
+            pass
+
+        # 2. Strict manual fallback chain
         try:
             return file_content.decode("utf-8-sig")
         except UnicodeDecodeError:
-            return file_content.decode(fallback_encoding)
+            try:
+                return file_content.decode("windows-1250")
+            except UnicodeDecodeError:
+                # Last resort: latin1 never fails but might produce junk
+                return file_content.decode("latin1")
 
     def clean_decimal(self, value: str) -> Decimal:
         """Clean and convert numeric strings to Decimal, handling various formats.
@@ -113,21 +132,17 @@ class BasePortfolioParser(ABC):
         self,
         file_content: bytes,
         delimiter: str | None = None,
-        fallback_encoding: str = "windows-1250",
     ) -> tuple[csv.DictReader[str], list[str]]:
         """Decodes CSV content and returns a safe DictReader with trimmed headers.
 
         Args:
             file_content: The raw binary content.
             delimiter: Optional explicit delimiter to use.
-            fallback_encoding: Encoding fallback if UTF-8 fails.
 
         Returns:
             tuple: A DictReader and a list of trimmed headers.
         """
-        decoded_content = self.safe_decode(
-            file_content, fallback_encoding=fallback_encoding
-        )
+        decoded_content = self.safe_decode(file_content)
         lines = decoded_content.strip().splitlines()
         if not lines:
             raise ValueError("Empty file content provided.")

@@ -83,9 +83,7 @@ class FioBrokerPortfolioParser(BasePortfolioParser):
             yield isin, symbol, quantity, average_price, currency
 
     def parse_sync(self, file_content: bytes) -> ImportedPortfolio:
-        reader, headers = self._prepare_csv_reader(
-            file_content, delimiter=";", fallback_encoding="cp1250"
-        )
+        reader, headers = self._prepare_csv_reader(file_content, delimiter=";")
         header_map = self._map_headers(headers)
 
         required_keys = ["isin", "symbol", "quantity", "price", "currency"]
@@ -126,9 +124,7 @@ class FioBrokerPortfolioParser(BasePortfolioParser):
         )
 
     async def parse_async(self, file_content: bytes) -> ImportedPortfolio:
-        reader, headers = self._prepare_csv_reader(
-            file_content, delimiter=";", fallback_encoding="cp1250"
-        )
+        reader, headers = self._prepare_csv_reader(file_content, delimiter=";")
         header_map = self._map_headers(headers)
 
         required_keys = ["isin", "symbol", "quantity", "price", "currency"]
