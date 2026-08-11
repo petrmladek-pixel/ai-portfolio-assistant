@@ -9,6 +9,7 @@ from decimal import Decimal
 from enum import StrEnum
 
 from pydantic import BaseModel, Field, field_validator
+from pydantic.functional_validators import model_validator
 
 
 class Currency(StrEnum):
@@ -17,6 +18,7 @@ class Currency(StrEnum):
     USD = "USD"
     EUR = "EUR"
     CZK = "CZK"
+    GBP = "GBP"
 
 
 class TransactionType(StrEnum):
@@ -100,9 +102,30 @@ class StockPosition(BaseModel):
         ..., min_length=1, max_length=15, pattern=r"^[A-Za-z0-9.\-]{1,15}$"
     )
     name: str | None = None
-    quantity: Decimal = Field(..., gt=0)
-    average_price: Decimal = Field(..., gt=0)
+    quantity: Decimal
+    average_price: Decimal
     currency: Currency
+    weight: Decimal | None = Field(default=None, gt=0, le=1)
+
+    @model_validator(mode="after")
+    def validate_non_zero_for_active_positions(self) -> "StockPosition":
+        """Ensures active positions have positive values, while allowing 0
+        for UNKNOWN."""
+        if self.ticker != "UNKNOWN":
+            if self.quantity <= 0:
+                raise ValueError(
+                    "quantity must be strictly greater than 0 for active assets"
+                )
+            if self.average_price <= 0:
+                raise ValueError(
+                    "average_price must be strictly greater than 0 for active assets"
+                )
+        else:
+            if self.quantity < 0:
+                raise ValueError("quantity cannot be negative for UNKNOWN assets")
+            if self.average_price < 0:
+                raise ValueError("average_price cannot be negative for UNKNOWN assets")
+        return self
 
     @field_validator("ticker", mode="before")
     @classmethod

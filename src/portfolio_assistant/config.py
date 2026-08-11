@@ -29,6 +29,9 @@ class Settings(BaseSettings):
     database_url: str = Field(
         default="sqlite:///./app.db", description="Database connection URI"
     )
+    data_dir: str = Field(
+        default="src/portfolio_assistant/data", description="Directory for data files"
+    )
     gemini_api_key: str | None = Field(default=None, description="Gemini API Key")
     gemini_model: str = Field(
         default="gemini-2.5-flash", description="Default Gemini Model"

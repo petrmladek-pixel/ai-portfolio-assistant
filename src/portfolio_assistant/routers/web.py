@@ -14,6 +14,8 @@ from portfolio_assistant.models.portfolio import Currency
 from portfolio_assistant.services.ai.gemini import GeminiAIService
 from portfolio_assistant.services.market_data.yfinance import YFinanceMarketDataService
 from portfolio_assistant.services.parser.degiro import DegiroPortfolioParser
+from portfolio_assistant.services.parser.fio_broker import FioBrokerPortfolioParser
+from portfolio_assistant.services.portfolio_merger import PortfolioMerger
 from portfolio_assistant.services.valuation.engine import ValuationService
 
 from ..dependencies import verify_credentials
@@ -80,6 +82,16 @@ def get_portfolio_parser() -> DegiroPortfolioParser:
     return DegiroPortfolioParser()
 
 
+def get_fio_parser() -> FioBrokerPortfolioParser:
+    """FastAPI dependency: Get Fio e-Broker parser instance."""
+    return FioBrokerPortfolioParser()
+
+
+def get_portfolio_merger() -> PortfolioMerger:
+    """FastAPI dependency: Get portfolio merger instance."""
+    return PortfolioMerger()
+
+
 @router.get("/", response_class=HTMLResponse)
 async def dashboard_get(
     request: Request, username: Annotated[str, Depends(verify_credentials)]
@@ -102,21 +114,45 @@ async def dashboard_get(
 @router.post("/upload", response_class=HTMLResponse)
 async def upload_portfolio(
     request: Request,
-    file: Annotated[UploadFile, Form()],
     valuation_service: Annotated[ValuationService, Depends(get_valuation_service)],
-    portfolio_parser: Annotated[DegiroPortfolioParser, Depends(get_portfolio_parser)],
+    degiro_parser: Annotated[DegiroPortfolioParser, Depends(get_portfolio_parser)],
+    fio_parser: Annotated[FioBrokerPortfolioParser, Depends(get_fio_parser)],
+    portfolio_merger: Annotated[PortfolioMerger, Depends(get_portfolio_merger)],
     gemini_service: Annotated[GeminiAIService, Depends(get_gemini_service)],
     username: Annotated[str, Depends(verify_credentials)],
+    degiro_file: Annotated[UploadFile | None, Form()] = None,
+    fio_file: Annotated[UploadFile | None, Form()] = None,
 ) -> HTMLResponse:
     """Handle portfolio CSV upload and display valuation results."""
     try:
-        # Read and parse the uploaded file
-        file_content = await file.read()
-        imported_portfolio = portfolio_parser.parse_sync(file_content)
+        imported_portfolios = []
+
+        # Parse DEGIRO file if provided
+        if degiro_file:
+            degiro_content = await degiro_file.read()
+            degiro_portfolio = await degiro_parser.parse(degiro_content)
+            imported_portfolios.append(degiro_portfolio)
+
+        # Parse Fio e-Broker file if provided
+        if fio_file:
+            fio_content = await fio_file.read()
+            fio_portfolio = await fio_parser.parse(fio_content)
+            imported_portfolios.append(fio_portfolio)
+
+        if not imported_portfolios:
+            raise ValueError("No portfolio files provided for upload")
+
+        # Merge portfolios if multiple files were provided
+        if len(imported_portfolios) > 1:
+            merged_portfolio = portfolio_merger.merge_portfolios(imported_portfolios)
+            imported_portfolios = [merged_portfolio]
+
+        # Use the final portfolio (either single or merged)
+        final_portfolio = imported_portfolios[0]
 
         # Value the portfolio
         valued_portfolio = await valuation_service.value_portfolio_async(
-            imported_portfolio, target_currency=Currency.CZK
+            final_portfolio, target_currency=Currency.CZK
         )
 
         # Generate AI analysis
