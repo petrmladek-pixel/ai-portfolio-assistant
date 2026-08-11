@@ -272,7 +272,7 @@ async def test_resolve_isins_multiple(isin_resolver, mock_cache):
         isin_resolver, "_query_yahoo_api", new_callable=AsyncMock
     ) as mock_query:
         # Set up side effects for the mock
-        async def query_side_effect(isin):
+        async def query_side_effect(isin, preferred_exchanges):
             if isin == "US5949181045":
                 return "MSFT"
             else:

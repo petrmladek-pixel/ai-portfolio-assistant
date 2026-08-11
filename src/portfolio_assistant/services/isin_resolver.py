@@ -10,6 +10,7 @@ from typing import Any
 
 from httpx2 import AsyncClient, Response
 
+from portfolio_assistant.models.portfolio import Currency
 from portfolio_assistant.services.isin_cache import SQLiteISINCache
 
 logger = logging.getLogger(__name__)
@@ -34,11 +35,14 @@ class YahooISINResolver:
             "(KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
         )
 
-    async def resolve_isin(self, isin: str) -> str | None:
+    async def resolve_isin(
+        self, isin: str, portfolio_currency: Currency = Currency.CZK
+    ) -> str | None:
         """Resolve ISIN to ticker using Yahoo Finance API with round-trip validation.
 
         Args:
             isin: The ISIN to resolve (e.g., 'US0378331005').
+            portfolio_currency: The currency of the portfolio.
 
         Returns:
             Optional[str]: The resolved ticker if successful, None if resolution fails.
@@ -48,6 +52,8 @@ class YahooISINResolver:
         """
         if not isin or not isin.strip():
             return None
+
+        preferred_exchanges = self.get_preferred_exchanges(portfolio_currency)
 
         normalized_isin = isin.strip().upper()
 
@@ -60,7 +66,7 @@ class YahooISINResolver:
         logger.debug(f"Cache miss for ISIN {normalized_isin}, querying Yahoo Finance")
 
         try:
-            ticker = await self._query_yahoo_api(normalized_isin)
+            ticker = await self._query_yahoo_api(normalized_isin, preferred_exchanges)
             if ticker:
                 # Cache the successful resolution using correct 'set_ticker' method
                 await self.cache.set_ticker(normalized_isin, ticker)
@@ -74,11 +80,45 @@ class YahooISINResolver:
             logger.error(f"Error resolving ISIN {normalized_isin}: {str(e)}")
             return None
 
-    async def _query_yahoo_api(self, isin: str) -> str | None:
+    def get_preferred_exchanges(self, portfolio_currency: Currency) -> set[str]:
+        """Get preferred exchanges based on portfolio currency.
+
+        Args:
+            portfolio_currency: The currency of the portfolio.
+
+        Returns:
+            set[str]: A set of preferred exchanges.
+        """
+        # Dynamically build preferred exchanges based on portfolio base currency
+        if portfolio_currency in [Currency.CZK, Currency.EUR]:
+            # Prefer European exchanges first, then US
+            return {
+                "AMS",
+                "XET",
+                "FRA",
+                "MIL",
+                "PAR",
+                "GER",
+                "NYQ",
+                "NMS",
+                "NAS",
+                "ASE",
+            }
+        elif portfolio_currency == Currency.GBP:
+            # Prefer London Stock Exchange
+            return {"LSE", "LON"}
+        else:
+            # Default to US exchanges
+            return {"NYQ", "NMS", "NAS", "ASE"}
+
+    async def _query_yahoo_api(
+        self, isin: str, preferred_exchanges: set[str]
+    ) -> str | None:
         """Query Yahoo Finance API and validate response with round-trip matching.
 
         Args:
             isin: The ISIN to query.
+            preferred_exchanges: A set of preferred exchanges.
 
         Returns:
             Optional[str]: The validated ticker if exact ISIN match found,
@@ -113,9 +153,6 @@ class YahooISINResolver:
                     logger.debug(f"No quotes found for ISIN {isin}")
                     return None
 
-                # Preferred US exchanges in Yahoo Finance
-                US_EXCHANGES = {"NYQ", "NMS", "NAS", "ASE", "NCM", "NGM"}
-
                 def quote_priority_key(q: dict[str, Any]) -> tuple[int, int, int]:
                     """Sort key to prioritize exact ISINs, US exchanges,
                     and suffixes."""
@@ -125,7 +162,7 @@ class YahooISINResolver:
 
                     # Priority 2: Preferred US exchange (0 = US exchange, 1 = foreign)
                     exchange = q.get("exchange", "").upper()
-                    is_foreign_exchange = 0 if exchange in US_EXCHANGES else 1
+                    is_foreign_exchange = 0 if exchange in preferred_exchanges else 1
 
                     # Priority 3: Suffix-free symbols (US tickers lack a dot)
                     symbol = q.get("symbol", "")

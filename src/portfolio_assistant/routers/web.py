@@ -130,13 +130,13 @@ async def upload_portfolio(
         # Parse DEGIRO file if provided
         if degiro_file:
             degiro_content = await degiro_file.read()
-            degiro_portfolio = await degiro_parser.parse_async(degiro_content)
+            degiro_portfolio = await degiro_parser.parse(degiro_content)
             imported_portfolios.append(degiro_portfolio)
 
         # Parse Fio e-Broker file if provided
         if fio_file:
             fio_content = await fio_file.read()
-            fio_portfolio = await fio_parser.parse_async(fio_content)
+            fio_portfolio = await fio_parser.parse(fio_content)
             imported_portfolios.append(fio_portfolio)
 
         if not imported_portfolios:

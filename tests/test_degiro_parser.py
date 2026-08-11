@@ -32,8 +32,9 @@ def mock_degiro_csv_with_bom():
     return bom + csv_content
 
 
-def test_degiro_parser_cz(degiro_parser, mock_degiro_csv_cz):
-    portfolio = degiro_parser.parse_sync(mock_degiro_csv_cz)
+@pytest.mark.asyncio
+async def test_degiro_parser_cz(degiro_parser, mock_degiro_csv_cz):
+    portfolio = await degiro_parser.parse(mock_degiro_csv_cz)
     assert portfolio.broker_name == "DEGIRO"
     assert len(portfolio.positions) == 2
 
@@ -59,8 +60,11 @@ def test_degiro_parser_cz(degiro_parser, mock_degiro_csv_cz):
 
 
 @pytest.mark.skip(reason="English DEGIRO format not officially supported")
-def test_degiro_parser_comma_delimiter(degiro_parser, mock_degiro_csv_comma_delimiter):
-    portfolio = degiro_parser.parse_sync(mock_degiro_csv_comma_delimiter)
+@pytest.mark.asyncio
+async def test_degiro_parser_comma_delimiter(
+    degiro_parser, mock_degiro_csv_comma_delimiter
+):
+    portfolio = await degiro_parser.parse(mock_degiro_csv_comma_delimiter)
     assert portfolio.broker_name == "DEGIRO"
     assert len(portfolio.positions) == 2
 
@@ -72,8 +76,9 @@ def test_degiro_parser_comma_delimiter(degiro_parser, mock_degiro_csv_comma_deli
     assert pos1.currency == Currency.USD
 
 
-def test_degiro_parser_with_bom(degiro_parser, mock_degiro_csv_with_bom):
-    portfolio = degiro_parser.parse_sync(mock_degiro_csv_with_bom)
+@pytest.mark.asyncio
+async def test_degiro_parser_with_bom(degiro_parser, mock_degiro_csv_with_bom):
+    portfolio = await degiro_parser.parse(mock_degiro_csv_with_bom)
     assert portfolio.broker_name == "DEGIRO"
     assert len(portfolio.positions) == 1
 
@@ -87,8 +92,11 @@ def test_degiro_parser_with_bom(degiro_parser, mock_degiro_csv_with_bom):
 
 
 @pytest.mark.skip(reason="English DEGIRO format not officially supported")
-def test_degiro_parser_isin_and_symbol(degiro_parser, mock_degiro_csv_isin_and_symbol):
-    portfolio = degiro_parser.parse_sync(mock_degiro_csv_isin_and_symbol)
+@pytest.mark.asyncio
+async def test_degiro_parser_isin_and_symbol(
+    degiro_parser, mock_degiro_csv_isin_and_symbol
+):
+    portfolio = await degiro_parser.parse(mock_degiro_csv_isin_and_symbol)
     assert portfolio.broker_name == "DEGIRO"
     assert len(portfolio.positions) == 1
     assert portfolio.positions[0].ticker == "AAPL"

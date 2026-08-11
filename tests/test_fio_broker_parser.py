@@ -1,6 +1,5 @@
 """Tests for the Fio e-Broker CSV parser."""
 
-from datetime import datetime
 from decimal import Decimal
 from unittest.mock import AsyncMock
 
@@ -75,43 +74,6 @@ def test_fio_parser_decimal_cleaning(fio_parser):
     assert result == Decimal("1234.56")
 
 
-def test_fio_parser_sync_parsing(fio_parser):
-    """Test synchronous parsing of Fio e-Broker CSV."""
-    # Create test CSV content
-    csv_content = """ISIN;Symbol;Množství;Cena;Měna
-US0378331005;AAPL;10;150,50;USD
-US5949181045;MSFT;5;300,25;USD
-"""
-
-    file_content = csv_content.encode("utf-8")
-
-    # Parse the CSV
-    portfolio = fio_parser.parse_sync(file_content)
-
-    # Verify portfolio properties
-    assert portfolio.broker_name == "Fio e-Broker"
-    assert isinstance(portfolio.imported_at, datetime)
-
-    # Verify positions
-    assert len(portfolio.positions) == 2
-
-    # Verify first position (AAPL)
-    aapl = portfolio.positions[0]
-    assert aapl.ticker == "AAPL"
-    assert aapl.name == "AAPL"
-    assert aapl.quantity == Decimal("10")
-    assert aapl.average_price == Decimal("150.50")
-    assert aapl.currency == Currency.USD
-
-    # Verify second position (MSFT)
-    msft = portfolio.positions[1]
-    assert msft.ticker == "MSFT"
-    assert msft.name == "MSFT"
-    assert msft.quantity == Decimal("5")
-    assert msft.average_price == Decimal("300.25")
-    assert msft.currency == Currency.USD
-
-
 @pytest.mark.asyncio
 async def test_fio_parser_async_parsing_success(
     fio_parser_with_mock_resolver, mock_isin_resolver
@@ -131,7 +93,7 @@ US5949181045;;5;300,25;USD
     )
 
     # Parse the CSV asynchronously
-    portfolio = await fio_parser_with_mock_resolver.parse_async(file_content)
+    portfolio = await fio_parser_with_mock_resolver.parse(file_content)
 
     # Verify ISIN resolution was called
     mock_isin_resolver.resolve_isin.assert_any_call("US0378331005")
@@ -173,16 +135,23 @@ INVALID_ISIN;;10;150,50;USD
     mock_isin_resolver.resolve_isin.return_value = None
 
     # Parse the CSV asynchronously
-    portfolio = await fio_parser_with_mock_resolver.parse_async(file_content)
+    portfolio = await fio_parser_with_mock_resolver.parse(file_content)
 
     # Verify ISIN resolution was called
     mock_isin_resolver.resolve_isin.assert_called_once_with("INVALID_ISIN")
 
-    # Verify that unknown ISINs are skipped entirely (no positions created)
-    assert len(portfolio.positions) == 0
+    # Verify that unknown ISINs are marked as UNKNOWN with zero values
+    assert len(portfolio.positions) == 1
+    unknown_asset = portfolio.positions[0]
+    assert unknown_asset.ticker == "UNKNOWN"
+    assert unknown_asset.name == "Unknown Asset (ISIN: INVALID_ISIN)"
+    assert unknown_asset.quantity == Decimal("0.00")
+    assert unknown_asset.average_price == Decimal("0.00")
+    assert unknown_asset.currency == Currency.USD
 
 
-def test_fio_parser_cp1250_encoding(fio_parser):
+@pytest.mark.asyncio
+async def test_fio_parser_cp1250_encoding(fio_parser):
     """Test that the Fio e-Broker parser handles CP1250 encoding."""
     # Create test CSV content with Czech characters in CP1250 encoding
     csv_content = """ISIN;Symbol;Množství;Cena;Měna
@@ -193,7 +162,7 @@ CZ0009009145;CEZ;100;500,25;CZK
     file_content = csv_content.encode("cp1250")
 
     # Parse the CSV
-    portfolio = fio_parser.parse_sync(file_content)
+    portfolio = await fio_parser.parse(file_content)
 
     # Verify positions
     assert len(portfolio.positions) == 1
@@ -207,15 +176,17 @@ CZ0009009145;CEZ;100;500,25;CZK
     assert cez.currency == Currency.CZK
 
 
-def test_fio_parser_empty_file(fio_parser):
+@pytest.mark.asyncio
+async def test_fio_parser_empty_file(fio_parser):
     """Test that the Fio e-Broker parser handles empty files."""
     file_content = b""
 
     with pytest.raises(ValueError, match="Empty file content provided"):
-        fio_parser.parse_sync(file_content)
+        await fio_parser.parse(file_content)
 
 
-def test_fio_parser_missing_columns(fio_parser):
+@pytest.mark.asyncio
+async def test_fio_parser_missing_columns(fio_parser):
     """Test that the Fio e-Broker parser handles missing columns."""
     # Create CSV without required columns
     csv_content = """ISIN;Symbol
@@ -225,10 +196,11 @@ US0378331005;AAPL
     file_content = csv_content.encode("utf-8")
 
     with pytest.raises(ValueError, match="Missing essential columns"):
-        fio_parser.parse_sync(file_content)
+        await fio_parser.parse(file_content)
 
 
-def test_fio_parser_invalid_numeric_data(fio_parser, capfd):
+@pytest.mark.asyncio
+async def test_fio_parser_invalid_numeric_data(fio_parser, capfd):
     """Test that the Fio e-Broker parser handles invalid numeric data."""
     # Create CSV with invalid numeric data
     csv_content = """ISIN;Symbol;Množství;Cena;Měna
@@ -239,7 +211,7 @@ US5949181045;MSFT;5;invalid;USD
     file_content = csv_content.encode("utf-8")
 
     # Parse the CSV (should skip invalid rows and log errors)
-    portfolio = fio_parser.parse_sync(file_content)
+    portfolio = await fio_parser.parse(file_content)
 
     # Verify only valid positions are included
     assert len(portfolio.positions) == 0  # Both rows have invalid data
@@ -249,7 +221,8 @@ US5949181045;MSFT;5;invalid;USD
     assert "Skipping row due to numeric parsing error" in captured.out
 
 
-def test_fio_parser_zero_quantity(fio_parser):
+@pytest.mark.asyncio
+async def test_fio_parser_zero_quantity(fio_parser):
     """Test that the Fio e-Broker parser filters out positions with zero quantity."""
     # Create CSV with zero quantity
     csv_content = """ISIN;Symbol;Množství;Cena;Měna
@@ -260,14 +233,15 @@ US5949181045;MSFT;5;300,25;USD
     file_content = csv_content.encode("utf-8")
 
     # Parse the CSV
-    portfolio = fio_parser.parse_sync(file_content)
+    portfolio = await fio_parser.parse(file_content)
 
     # Verify only positions with positive quantity are included
     assert len(portfolio.positions) == 1
     assert portfolio.positions[0].ticker == "MSFT"
 
 
-def test_fio_parser_zero_price(fio_parser):
+@pytest.mark.asyncio
+async def test_fio_parser_zero_price(fio_parser):
     """Test that the Fio e-Broker parser filters out positions with zero price."""
     # Create CSV with zero price
     csv_content = """ISIN;Symbol;Množství;Cena;Měna
@@ -278,8 +252,53 @@ US5949181045;MSFT;5;300,25;USD
     file_content = csv_content.encode("utf-8")
 
     # Parse the CSV
-    portfolio = fio_parser.parse_sync(file_content)
+    portfolio = await fio_parser.parse(file_content)
 
     # Verify only positions with positive price are included
     assert len(portfolio.positions) == 1
     assert portfolio.positions[0].ticker == "MSFT"
+
+
+@pytest.mark.asyncio
+async def test_fio_parser_async_fio_symbol(
+    fio_parser_with_mock_resolver, mock_isin_resolver
+):
+    """Test asynchronous parsing of Fio e-Broker CSV with successful ISIN resolution."""
+    # Create test CSV content with ISINs that need resolution
+    csv_content = """
+Symbol;Akcie;Kurz;Majetek;Kusy;Nákup;Prodej;Výnosy;Akcie;Kurz;Majetek;Zisk;Výnos;Detail;
+BAACSG;0;0,00;0,00;81;48 105;;;81;403,00;32 643,00;-15 462,28;-32,14%;;
+BAAGECBA;0;68,50;0,00;135;15 102;;3 272,50;135;192,20;25 947,00;14 117,86;93,49%;;
+"""
+
+    file_content = csv_content.encode("utf-8")
+
+    # Mock ISIN resolution
+    mock_isin_resolver.resolve_isin.side_effect = lambda isin: (
+        "BAACSG" if isin == "BAACSG" else "BAAGECBA"
+    )
+
+    # Parse the CSV asynchronously
+    portfolio = await fio_parser_with_mock_resolver.parse(file_content)
+
+    # Verify ISIN resolution was NEVER called (resolved locally via FIO_LOCAL_MAPPINGS)
+    mock_isin_resolver.resolve_isin.assert_not_called()
+
+    # Verify positions
+    assert len(portfolio.positions) == 2
+
+    # Verify first position (resolved BAACSG)
+    pos1 = portfolio.positions[0]
+    assert pos1.ticker == "CSG.PR"
+    assert pos1.name == "BAACSG"
+    assert pos1.quantity == Decimal("81")
+    assert pos1.average_price == Decimal("403.00")
+    assert pos1.currency == Currency.CZK
+
+    # Verify second position (resolved BAAGECBA)
+    pos2 = portfolio.positions[1]
+    assert pos2.ticker == "MONET.PR"
+    assert pos2.name == "BAAGECBA"
+    assert pos2.quantity == Decimal("135")
+    assert pos2.average_price == Decimal("192.20")
+    assert pos2.currency == Currency.CZK

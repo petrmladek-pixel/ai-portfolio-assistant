@@ -18,6 +18,7 @@ class Currency(StrEnum):
     USD = "USD"
     EUR = "EUR"
     CZK = "CZK"
+    GBP = "GBP"
 
 
 class TransactionType(StrEnum):

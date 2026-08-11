@@ -144,7 +144,7 @@ class DegiroPortfolioParser(BasePortfolioParser):
 
             yield product_name, symbol_isin, quantity, average_price, currency
 
-    def parse_sync(self, file_content: bytes) -> ImportedPortfolio:
+    async def parse(self, file_content: bytes) -> ImportedPortfolio:
         reader, headers = self._prepare_csv_reader(file_content)
         header_map = self._map_headers(headers)
 

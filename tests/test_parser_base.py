@@ -20,7 +20,7 @@ class MockParser(BasePortfolioParser):
     def broker_name(self) -> str:
         return "MockBroker"
 
-    def parse_sync(self, file_content: bytes) -> ImportedPortfolio:
+    async def parse(self, file_content: bytes) -> ImportedPortfolio:
         """Simple mock parsing logic."""
         # Just return a dummy portfolio for testing
         return ImportedPortfolio(
@@ -43,20 +43,11 @@ def test_parser_broker_name():
     assert parser.broker_name == "MockBroker"
 
 
-def test_parse_sync():
-    """Test the synchronous parse method."""
-    parser = MockParser()
-    portfolio = parser.parse_sync(b"dummy data")
-    assert portfolio.broker_name == "MockBroker"
-    assert len(portfolio.positions) == 1
-    assert portfolio.positions[0].ticker == "TSLA"
-
-
 @pytest.mark.asyncio
 async def test_parse_async():
     """Test the asynchronous parse method."""
     parser = MockParser()
-    portfolio = await parser.parse_async(b"dummy data")
+    portfolio = await parser.parse(b"dummy data")
     assert portfolio.broker_name == "MockBroker"
     assert len(portfolio.positions) == 1
     assert portfolio.positions[0].ticker == "TSLA"

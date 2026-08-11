@@ -1,4 +1,4 @@
-# Project Architecture Standards (python_template_uv)
+# Project Architecture Standards (portfolio_assistant)
 
 You are a senior Python architect. When generating code, refactoring, or creating
 new modules in this project, you MUST strictly follow the rules below.
@@ -7,7 +7,7 @@ new modules in this project, you MUST strictly follow the rules below.
 
 The project strictly uses a modern src-layout with the uv package manager.
 
-- Source code is located exclusively in src/python_template_uv/.
+- Source code is located exclusively in src/portfolio_assistant/.
 - Tests are located in tests/.
 - Never create application logic directly in the root directory.
 
@@ -21,15 +21,24 @@ The project strictly uses a modern src-layout with the uv package manager.
   requests, call services through FastAPI `Depends`, and return validated data.
 - **services/:** Contains classes responsible for integrations. These services must
   not directly depend on FastAPI HTTP objects.
-- **config.py:** Manages settings using load_dotenv or pydantic-settings.
+- **config.py / settings:** Never hardcode configuration values, credentials,
+  API endpoints, or sensitive keys. Always use `.env` files, environment
+  variables, or a dedicated configuration class (e.g., Pydantic Settings).
 
-## 3. Strict Code Quality & DRY Refactoring Rules
+## 3. Strict Code Quality, Modularity & DRY Rules
 
 - **Zero Tolerance for Duplication (DRY):** Never copy-paste or duplicate entire
   code blocks to create parallel sync/async pathways. If a sync and async method
   share logic (e.g., file decoding, CSV parsing, data cleaning), you MUST extract
   this logic into an abstract base class (e.g., `BasePortfolioParser`) or shared
   private helper functions.
+- **Scan Before Implementing:** Before writing any new helper function, parsing
+  utility, or mathematical calculation, scan existing directories (such as base
+  classes, utilities, or `FIO_LOCAL_MAPPINGS` in `fio_broker.py`) to ensure an
+  equivalent helper or mapped symbol does not already exist.
+- **Aim for Small, Modular Files:** Favor writing small, highly cohesive,
+  single-purpose files. Try to keep source files under 150 lines of code wherever
+  possible. Extract complex logic into smaller modules or helper functions.
 - **Code Reuse over Patches:** Always prioritize refactoring existing files and
   improving the codebase structure over adding redundant, standalone methods.
 - **Strict Maximum Line Length:** Every single line of code, comments, docstrings,
@@ -62,6 +71,12 @@ The project strictly uses a modern src-layout with the uv package manager.
 - When writing Pytest files with `AsyncMock`, do not reassign mocked async methods to
   raw Python functions. Use `mock_client.get.return_value = mock_response` and mock
   async context managers using `__aenter__.return_value`.
+- **Max Attempt Limit for Debugging (STRICT):** If a test suite (`pytest`) or
+  linter check (`ruff` / `mypy`) fails, you are allowed a maximum of TWO (2)
+  consecutive attempts to fix the underlying issue. If your second attempt does
+  not resolve the failure, you MUST immediately stop, present a clear summary
+  of your findings and the current traceback, and ask the user for manual
+  intervention. Do not loop recursively beyond 2 attempts.
 
 ## 6. Commit Standards (STRICT)
 

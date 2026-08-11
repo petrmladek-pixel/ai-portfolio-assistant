@@ -5,7 +5,6 @@ providing both synchronous and asynchronous parsing capabilities, along with com
 helper methods for parsing and cleaning financial data.
 """
 
-import asyncio
 import csv
 from abc import ABC, abstractmethod
 from decimal import Decimal
@@ -40,17 +39,7 @@ class BasePortfolioParser(ABC):
         """
 
     @abstractmethod
-    def parse_sync(self, file_content: bytes) -> ImportedPortfolio:
-        """Synchronously parse the content of a portfolio file.
-
-        Args:
-            file_content (bytes): The raw binary content of the portfolio file.
-
-        Returns:
-            ImportedPortfolio: The parsed and validated portfolio data.
-        """
-
-    async def parse_async(self, file_content: bytes) -> ImportedPortfolio:
+    async def parse(self, file_content: bytes) -> ImportedPortfolio:
         """Asynchronously parse the content of a portfolio file.
 
         Args:
@@ -59,7 +48,6 @@ class BasePortfolioParser(ABC):
         Returns:
             ImportedPortfolio: The parsed and validated portfolio data.
         """
-        return await asyncio.to_thread(self.parse_sync, file_content)
 
     def safe_decode(self, file_content: bytes) -> str:
         """Safely decode bytes to string, automatically detecting the encoding.
@@ -147,11 +135,30 @@ class BasePortfolioParser(ABC):
         if not lines:
             raise ValueError("Empty file content provided.")
 
+        # If this is a Fio e-Broker file starting with metadata lines, skip them
+        # to reach the header row.
+        # Check if "Portfolio - Vývoj" or similar starts the file.
+        actual_content = decoded_content
+        for idx, line in enumerate(lines):
+            line_lower = line.lower()
+            if (
+                "symbol;" in line_lower
+                or "isin;" in line_lower
+                or "značka;" in line_lower
+                or "značka" in line_lower
+            ):
+                actual_content = "\n".join(lines[idx:])
+                break
+
+        lines = actual_content.strip().splitlines()
+        if not lines:
+            raise ValueError("Empty file content provided after skipping metadata.")
+
         # Heuristic delimiter detection if not explicitly specified
         if delimiter is None:
             delimiter = ";" if ";" in lines[0] else ","
 
-        csv_file = StringIO(decoded_content)
+        csv_file = StringIO(actual_content)
         reader = csv.DictReader(csv_file, delimiter=delimiter)
 
         headers = [h.strip() for h in (reader.fieldnames or [])]

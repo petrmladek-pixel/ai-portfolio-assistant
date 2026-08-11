@@ -108,7 +108,7 @@ Microsoft Corp.,MSFT,5,300.25,USD"""
 
     # Create mock instances
     mock_parser_instance = MagicMock()
-    mock_parser_instance.parse_async = AsyncMock(return_value=mock_imported_portfolio)
+    mock_parser_instance.parse = AsyncMock(return_value=mock_imported_portfolio)
 
     mock_val_instance = MagicMock()
     mock_val_instance.value_portfolio_async = AsyncMock(
@@ -156,9 +156,7 @@ This,is,not,a,valid,CSV"""
 
     # Override dependencies in the FastAPI application
     mock_parser_service = MagicMock()
-    mock_parser_service.parse_async = AsyncMock(
-        side_effect=ValueError("Invalid CSV format")
-    )
+    mock_parser_service.parse = AsyncMock(side_effect=ValueError("Invalid CSV format"))
     app.dependency_overrides[get_portfolio_parser] = lambda: mock_parser_service
 
     response = client.post("/upload", files=files, auth=("admin", "admin"))
