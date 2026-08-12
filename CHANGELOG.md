@@ -15,6 +15,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Centralized configurations in `pyproject.toml`.
 - GitHub Actions CI pipeline with automated linting, typing, and testing.
 
+## v0.4.0 (2026-08-12)
+
+### Feat
+
+- **parser**: refactor portfolio parsers to unify async parsing methods and enhance ISIN resolution handling
+- **portfolio-merger**: implement portfolio merging functionality with weighted averages
+
+### Refactor
+
+- **parser**: improve safe_decode method to use automatic encoding detection
+- **portfolio**: enhance validation for StockPosition and clean up ISIN resolver
+
 ## v0.3.0 (2026-07-31)
 
 ### Feat
