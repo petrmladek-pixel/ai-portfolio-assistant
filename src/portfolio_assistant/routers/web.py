@@ -6,7 +6,7 @@ from decimal import Decimal
 from pathlib import Path
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, Form, Request, UploadFile
+from fastapi import APIRouter, Depends, Form, HTTPException, Request, UploadFile
 from fastapi.responses import HTMLResponse
 from fastapi.templating import Jinja2Templates
 
@@ -127,6 +127,11 @@ async def upload_portfolio(
     try:
         imported_portfolios = []
 
+        if not degiro_file and not fio_file:
+            raise HTTPException(
+                status_code=400, detail="At least one portfolio file must be provided."
+            )
+
         # Parse DEGIRO file if provided
         if degiro_file:
             degiro_content = await degiro_file.read()
@@ -139,16 +144,15 @@ async def upload_portfolio(
             fio_portfolio = await fio_parser.parse(fio_content)
             imported_portfolios.append(fio_portfolio)
 
-        if not imported_portfolios:
-            raise ValueError("No portfolio files provided for upload")
-
-        # Merge portfolios if multiple files were provided
-        if len(imported_portfolios) > 1:
-            merged_portfolio = portfolio_merger.merge_portfolios(imported_portfolios)
-            imported_portfolios = [merged_portfolio]
-
-        # Use the final portfolio (either single or merged)
-        final_portfolio = imported_portfolios[0]
+        # If only one portfolio is uploaded, no merge is needed.
+        if len(imported_portfolios) == 1:
+            final_portfolio = imported_portfolios[0]
+        elif len(imported_portfolios) > 1:
+            final_portfolio = portfolio_merger.merge_portfolios(imported_portfolios)
+        else:
+            # This case should ideally be caught by the HTTPException above,
+            # but added for completeness.
+            raise ValueError("No portfolio data to process after parsing.")
 
         # Value the portfolio
         valued_portfolio = await valuation_service.value_portfolio_async(

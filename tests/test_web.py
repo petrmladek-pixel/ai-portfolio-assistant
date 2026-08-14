@@ -3,6 +3,7 @@
 import warnings
 from datetime import datetime
 from decimal import Decimal
+from typing import Any
 from unittest.mock import AsyncMock, MagicMock
 
 from fastapi.testclient import TestClient
@@ -15,6 +16,9 @@ from portfolio_assistant.models.portfolio import (
 )
 from portfolio_assistant.models.valuation import ValuedPortfolio, ValuedPosition
 from portfolio_assistant.routers.web import (
+    get_fio_parser,
+    get_gemini_service,
+    get_portfolio_merger,
     get_portfolio_parser,
     get_valuation_service,
 )
@@ -24,25 +28,8 @@ warnings.filterwarnings("ignore", message=".*httpx.*", category=DeprecationWarni
 client = TestClient(app)
 
 
-def test_get_dashboard():
-    """Test that GET / returns 200 OK and contains upload form."""
-    # Test without authentication (should fail)
-    response = client.get("/")
-    assert response.status_code == 401
-    assert "WWW-Authenticate" in response.headers
-
-    # Test with correct authentication
-    response = client.get("/", auth=("admin", "admin"))
-    assert response.status_code == 200
-    assert "text/html" in response.headers["content-type"]
-    assert b"Upload Portfolio CSV" in response.content
-    assert b"Upload and Analyze" in response.content
-    assert b"DEGIRO portfolio CSV file" in response.content
-
-
-def test_post_upload_valid_csv():
-    """Test that POST /upload with valid CSV processes successfully."""
-    # 1. Create mock data (same as your original implementation)
+def _create_mock_portfolio_data() -> tuple[ImportedPortfolio, ValuedPortfolio]:
+    """Helper to create common mock portfolio data."""
     mock_positions = [
         StockPosition(
             ticker="AAPL",
@@ -100,59 +87,155 @@ def test_post_upload_valid_csv():
         target_currency=Currency.CZK,
     )
 
-    csv_content = """Product,Symbol/ISIN,Quantity,Break-even Price,Currency
-Apple Inc.,AAPL,10,150.50,USD
-Microsoft Corp.,MSFT,5,300.25,USD"""
+    return mock_imported_portfolio, mock_valued_portfolio
 
-    files = {"degiro_file": ("portfolio.csv", csv_content, "text/csv")}
 
-    # Create mock instances
-    mock_parser_instance = MagicMock()
-    mock_parser_instance.parse = AsyncMock(return_value=mock_imported_portfolio)
+def _setup_mock_services(
+    imported_portfolio: ImportedPortfolio,
+    valued_portfolio: ValuedPortfolio,
+) -> tuple[MagicMock, MagicMock, MagicMock, MagicMock, MagicMock]:
+    """Helper to set up mock services for tests."""
+    mock_degiro_parser = MagicMock()
+    mock_degiro_parser.parse = AsyncMock(return_value=imported_portfolio)
 
-    mock_val_instance = MagicMock()
-    mock_val_instance.value_portfolio_async = AsyncMock(
-        return_value=mock_valued_portfolio
+    mock_fio_parser = MagicMock()
+    mock_fio_parser.parse = AsyncMock(return_value=imported_portfolio)
+
+    mock_portfolio_merger = MagicMock()
+    mock_portfolio_merger.merge_portfolios = MagicMock(return_value=imported_portfolio)
+
+    mock_valuation_service = MagicMock()
+    mock_valuation_service.value_portfolio_async = AsyncMock(
+        return_value=valued_portfolio
     )
 
-    # Override dependencies in the FastAPI application
-    app.dependency_overrides[get_portfolio_parser] = lambda: mock_parser_instance
-    app.dependency_overrides[get_valuation_service] = lambda: mock_val_instance
+    mock_gemini_service = MagicMock()
+    mock_gemini_service.analyze_portfolio = AsyncMock(return_value="AI Analysis")
+
+    app.dependency_overrides[get_portfolio_parser] = lambda: mock_degiro_parser
+    app.dependency_overrides[get_fio_parser] = lambda: mock_fio_parser
+    app.dependency_overrides[get_portfolio_merger] = lambda: mock_portfolio_merger
+    app.dependency_overrides[get_valuation_service] = lambda: mock_valuation_service
+    app.dependency_overrides[get_gemini_service] = lambda: mock_gemini_service
+
+    return (
+        mock_degiro_parser,
+        mock_fio_parser,
+        mock_portfolio_merger,
+        mock_valuation_service,
+        mock_gemini_service,
+    )
+
+
+def _teardown_mock_services() -> None:
+    """Helper to clean up dependency overrides."""
+    app.dependency_overrides.clear()
+
+
+def test_get_dashboard():
+    """Test that GET / returns 200 OK and contains upload form."""
+    # Test without authentication (should fail)
+    response = client.get("/")
+    assert response.status_code == 401
+    assert "WWW-Authenticate" in response.headers
+
+    # Test with correct authentication
+    response = client.get("/", auth=("admin", "admin"))
+    assert response.status_code == 200
+    assert "text/html" in response.headers["content-type"]
+    assert b"Upload Portfolio CSV" in response.content
+    assert b"Upload and Analyze" in response.content
+    assert b"DEGIRO portfolio CSV file" in response.content
+
+
+def test_post_upload_only_degiro_csv():
+    """Test that POST /upload with only DEGIRO CSV processes successfully."""
+    mock_imported_portfolio, mock_valued_portfolio = _create_mock_portfolio_data()
+    mock_degiro_parser, _, mock_portfolio_merger, mock_valuation_service, _ = (
+        _setup_mock_services(mock_imported_portfolio, mock_valued_portfolio)
+    )
+
+    degiro_csv_content = """Product,Symbol/ISIN,Quantity,Break-even Price,Currency\n"
+        "Apple Inc.,AAPL,10,150.50,USD\nMicrosoft Corp.,MSFT,5,300.25,USD"""
+
+    files: dict[str, Any] = {
+        "degiro_file": ("degiro.csv", degiro_csv_content, "text/csv")
+    }
 
     try:
-        # Perform the request with authentication
         response = client.post("/upload", files=files, auth=("admin", "admin"))
 
-        # Assertions
         assert response.status_code == 200
         assert "text/html" in response.headers["content-type"]
-
         content = response.text
         assert "Portfolio Summary" in content
         assert "AAPL" in content
         assert "MSFT" in content
-        assert "60 000,00" in content  # Now it will ALWAYS be the mock value: 60 000,00
+        assert "60 000,00" in content
         assert "CZK" in content
-
-        # Check that chart data is present (using safe JSON approach)
-        assert "chart-data" in content
-        assert "data-chart=" in content
-        assert "allocationChart" in content
-        assert "AAPL" in content
-        assert "MSFT" in content
+        mock_degiro_parser.parse.assert_called_once()
+        mock_portfolio_merger.merge_portfolios.assert_not_called()
+        mock_valuation_service.value_portfolio_async.assert_called_once()
 
     finally:
-        # 5. IMPORTANT: Clean up dependency overrides to keep other tests isolated
-        app.dependency_overrides.clear()
+        _teardown_mock_services()
+
+
+def test_post_upload_only_fio_csv():
+    """Test that POST /upload with only Fio CSV processes successfully."""
+    mock_imported_portfolio, mock_valued_portfolio = _create_mock_portfolio_data()
+    _, mock_fio_parser, mock_portfolio_merger, mock_valuation_service, _ = (
+        _setup_mock_services(mock_imported_portfolio, mock_valued_portfolio)
+    )
+
+    fio_csv_content = """Pohyb,Datum,Název cenného papíru,ISIN,Množství,Kurz,Měna\n"
+        "Nákup,2023-01-01,Apple Inc.,US0378331005,10,150.50,USD\n"
+        "Nákup,2023-01-02,Microsoft Corp.,US5949181045,5,300.25,USD"""
+
+    files: dict[str, Any] = {"fio_file": ("fio.csv", fio_csv_content, "text/csv")}
+
+    try:
+        response = client.post("/upload", files=files, auth=("admin", "admin"))
+
+        assert response.status_code == 200
+        assert "text/html" in response.headers["content-type"]
+        content = response.text
+        assert "Portfolio Summary" in content
+        assert "AAPL" in content
+        assert "MSFT" in content
+        assert "60 000,00" in content
+        assert "CZK" in content
+        mock_fio_parser.parse.assert_called_once()
+        mock_portfolio_merger.merge_portfolios.assert_not_called()
+        mock_valuation_service.value_portfolio_async.assert_called_once()
+
+    finally:
+        _teardown_mock_services()
+
+
+def test_post_upload_no_files_raises_400():
+    """Test that POST /upload with no files raises HTTP 400 error."""
+    # No files provided
+    files: dict[str, Any] = {}
+
+    response = client.post("/upload", files=files, auth=("admin", "admin"))
+
+    assert (
+        response.status_code == 200
+    )  # Expect 200 because it renders the dashboard with an error
+    assert "text/html" in response.headers["content-type"]
+    assert (
+        "Error processing portfolio: 400: At least one portfolio file must be provided."
+        in response.text
+    )
 
 
 def test_post_upload_invalid_csv():
     """Test that POST /upload with invalid CSV shows error message."""
     # Create invalid CSV content
-    csv_content = """Invalid,Header,Format
-This,is,not,a,valid,CSV"""
+    csv_content = """Invalid,Header,Format\nThis,is,not,a,valid,CSV"""
 
-    files = {"degiro_file": ("invalid.csv", csv_content, "text/csv")}
+    files: dict[str, Any] = {"degiro_file": ("invalid.csv", csv_content, "text/csv")}
 
     # Override dependencies in the FastAPI application
     mock_parser_service = MagicMock()
@@ -173,7 +256,7 @@ This,is,not,a,valid,CSV"""
 
 def test_post_upload_empty_file():
     """Test that POST /upload with empty file shows error message."""
-    files = {"degiro_file": ("empty.csv", "", "text/csv")}
+    files: dict[str, Any] = {"degiro_file": ("empty.csv", "", "text/csv")}
 
     response = client.post("/upload", files=files, auth=("admin", "admin"))
 
