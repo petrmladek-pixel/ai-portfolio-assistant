@@ -11,6 +11,7 @@ class Settings(BaseSettings):
     """Runtime settings for the application."""
 
     model_config = SettingsConfigDict(
+        env_prefix="PORTFOLIO_",
         env_file=".env",
         env_file_encoding="utf-8",
         extra="ignore",
@@ -37,6 +38,17 @@ class Settings(BaseSettings):
         default="gemini-2.5-flash", description="Default Gemini Model"
     )
 
+    # Security settings
+    secret_key: str = Field(
+        default="dev-secret-key-change-me-in-production",
+        description="Secret key for JWT signing",
+    )
+    algorithm: str = Field(default="HS256", description="JWT algorithm")
+    access_token_expire_minutes: int = Field(
+        default=1440, description="JWT expiration in minutes (1440 = 1 day)"
+    )
+    session_cookie_name: str = Field(default="session_token", description="Cookie name")
+
     # Web Basic Authentication
     web_basic_auth_username: str | None = Field(
         default=None, description="Username for web dashboard basic authentication"
@@ -50,13 +62,16 @@ class Settings(BaseSettings):
         """
         Fail-closed validation for production environment.
 
-        In production, basic authentication credentials must be explicitly configured.
+        In production, security settings must be explicitly configured.
         This ensures we never run in production with default or missing credentials.
 
         Raises:
-            ValueError: If production environment has missing basic auth credentials
+            ValueError: If production environment has missing security configuration
         """
         if self.environment == "production":
+            if self.secret_key == "dev-secret-key-change-me-in-production":
+                raise ValueError("In production, SECRET_KEY must be changed.")
+
             if not self.web_basic_auth_username or not self.web_basic_auth_password:
                 raise ValueError(
                     "In production, WEB_BASIC_AUTH_USERNAME and "

@@ -207,7 +207,7 @@ async def test_analyze_portfolio_with_env_api_key(
     mock_client = MagicMock()
     mock_client.aio.models.generate_content = AsyncMock(return_value=mock_response)
 
-    with patch.dict(os.environ, {"GEMINI_API_KEY": "env-test-key"}):
+    with patch.dict(os.environ, {"PORTFOLIO_GEMINI_API_KEY": "env-test-key"}):
         # Clear cache so GitHub tests don't fall
         get_settings.cache_clear()
 

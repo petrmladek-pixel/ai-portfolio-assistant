@@ -8,12 +8,14 @@ from unittest.mock import AsyncMock, MagicMock
 
 from fastapi.testclient import TestClient
 
+from portfolio_assistant.dependencies import get_optional_current_user
 from portfolio_assistant.main import app
 from portfolio_assistant.models.portfolio import (
     Currency,
     ImportedPortfolio,
     StockPosition,
 )
+from portfolio_assistant.models.user import User
 from portfolio_assistant.models.valuation import ValuedPortfolio, ValuedPosition
 from portfolio_assistant.routers.web import (
     get_fio_parser,
@@ -134,18 +136,33 @@ def _teardown_mock_services() -> None:
 
 def test_get_dashboard():
     """Test that GET / returns 200 OK and contains upload form."""
-    # Test without authentication (should fail)
+    # Test without authentication (public access)
     response = client.get("/")
-    assert response.status_code == 401
-    assert "WWW-Authenticate" in response.headers
-
-    # Test with correct authentication
-    response = client.get("/", auth=("admin", "admin"))
     assert response.status_code == 200
     assert "text/html" in response.headers["content-type"]
-    assert b"Upload Portfolio CSV" in response.content
-    assert b"Upload and Analyze" in response.content
-    assert b"DEGIRO portfolio CSV file" in response.content
+    assert b"Register" in response.content  # Assuming registration link is visible
+    assert b"Login" in response.content  # Assuming login link is visible
+    assert b"Get Started" in response.content  # New prompt for unauthenticated users
+    assert (
+        b"Upload Portfolio CSV" not in response.content
+    )  # Upload form should be hidden
+
+    # Test with authenticated user
+    mock_user = User(email="admin@example.com", hashed_password="hash")
+    app.dependency_overrides[get_optional_current_user] = lambda: mock_user
+    try:
+        response = client.get("/")
+        assert response.status_code == 200
+        assert "text/html" in response.headers["content-type"]
+        assert (
+            b"admin@example.com" in response.content
+        )  # Check if username is displayed
+        assert (
+            b"Upload Portfolio CSV" in response.content
+        )  # Upload form should be visible
+        assert b"Get Started" not in response.content  # Prompt should be hidden
+    finally:
+        _teardown_mock_services()
 
 
 def test_post_upload_only_degiro_csv():
@@ -162,8 +179,12 @@ def test_post_upload_only_degiro_csv():
         "degiro_file": ("degiro.csv", degiro_csv_content, "text/csv")
     }
 
+    # Mock authenticated user
+    mock_user = User(email="admin@example.com", hashed_password="hash")
+    app.dependency_overrides[get_optional_current_user] = lambda: mock_user
+
     try:
-        response = client.post("/upload", files=files, auth=("admin", "admin"))
+        response = client.post("/upload", files=files)
 
         assert response.status_code == 200
         assert "text/html" in response.headers["content-type"]
@@ -194,8 +215,12 @@ def test_post_upload_only_fio_csv():
 
     files: dict[str, Any] = {"fio_file": ("fio.csv", fio_csv_content, "text/csv")}
 
+    # Mock authenticated user
+    mock_user = User(email="admin@example.com", hashed_password="hash")
+    app.dependency_overrides[get_optional_current_user] = lambda: mock_user
+
     try:
-        response = client.post("/upload", files=files, auth=("admin", "admin"))
+        response = client.post("/upload", files=files)
 
         assert response.status_code == 200
         assert "text/html" in response.headers["content-type"]
@@ -218,16 +243,23 @@ def test_post_upload_no_files_raises_400():
     # No files provided
     files: dict[str, Any] = {}
 
-    response = client.post("/upload", files=files, auth=("admin", "admin"))
+    # Mock authenticated user
+    mock_user = User(email="admin@example.com", hashed_password="hash")
+    app.dependency_overrides[get_optional_current_user] = lambda: mock_user
 
-    assert (
-        response.status_code == 200
-    )  # Expect 200 because it renders the dashboard with an error
-    assert "text/html" in response.headers["content-type"]
-    assert (
-        "Error processing portfolio: 400: At least one portfolio file must be provided."
-        in response.text
-    )
+    try:
+        response = client.post("/upload", files=files)
+
+        assert (
+            response.status_code == 200
+        )  # Expect 200 because it renders the dashboard with an error
+        assert "text/html" in response.headers["content-type"]
+        assert (
+            "Error processing portfolio: 400: "
+            "At least one portfolio file must be provided." in response.text
+        )
+    finally:
+        _teardown_mock_services()
 
 
 def test_post_upload_invalid_csv():
@@ -237,30 +269,41 @@ def test_post_upload_invalid_csv():
 
     files: dict[str, Any] = {"degiro_file": ("invalid.csv", csv_content, "text/csv")}
 
+    # Mock authenticated user
+    mock_user = User(email="admin@example.com", hashed_password="hash")
+    app.dependency_overrides[get_optional_current_user] = lambda: mock_user
+
     # Override dependencies in the FastAPI application
     mock_parser_service = MagicMock()
     mock_parser_service.parse = AsyncMock(side_effect=ValueError("Invalid CSV format"))
     app.dependency_overrides[get_portfolio_parser] = lambda: mock_parser_service
 
-    response = client.post("/upload", files=files, auth=("admin", "admin"))
+    try:
+        response = client.post("/upload", files=files)
 
-    # Assertions
-    assert response.status_code == 200
-    assert "text/html" in response.headers["content-type"]
-    assert "Error processing portfolio" in response.text
-    assert "Invalid CSV format" in response.text
-
-    # Clean up
-    app.dependency_overrides.clear()
+        # Assertions
+        assert response.status_code == 200
+        assert "text/html" in response.headers["content-type"]
+        assert "Error processing portfolio" in response.text
+        assert "Invalid CSV format" in response.text
+    finally:
+        _teardown_mock_services()
 
 
 def test_post_upload_empty_file():
     """Test that POST /upload with empty file shows error message."""
     files: dict[str, Any] = {"degiro_file": ("empty.csv", "", "text/csv")}
 
-    response = client.post("/upload", files=files, auth=("admin", "admin"))
+    # Mock authenticated user
+    mock_user = User(email="admin@example.com", hashed_password="hash")
+    app.dependency_overrides[get_optional_current_user] = lambda: mock_user
 
-    # Should show error due to empty file
-    assert response.status_code == 200
-    assert "text/html" in response.headers["content-type"]
-    assert "Error processing portfolio" in response.text
+    try:
+        response = client.post("/upload", files=files)
+
+        # Should show error due to empty file
+        assert response.status_code == 200
+        assert "text/html" in response.headers["content-type"]
+        assert "Error processing portfolio" in response.text
+    finally:
+        _teardown_mock_services()

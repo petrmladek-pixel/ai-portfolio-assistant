@@ -11,6 +11,7 @@ from fastapi.responses import HTMLResponse
 from fastapi.templating import Jinja2Templates
 
 from portfolio_assistant.models.portfolio import Currency
+from portfolio_assistant.models.user import User
 from portfolio_assistant.services.ai.gemini import GeminiAIService
 from portfolio_assistant.services.market_data.yfinance import YFinanceMarketDataService
 from portfolio_assistant.services.parser.degiro import DegiroPortfolioParser
@@ -18,7 +19,7 @@ from portfolio_assistant.services.parser.fio_broker import FioBrokerPortfolioPar
 from portfolio_assistant.services.portfolio_merger import PortfolioMerger
 from portfolio_assistant.services.valuation.engine import ValuationService
 
-from ..dependencies import verify_credentials
+from ..dependencies import get_optional_current_user
 
 logger = logging.getLogger(__name__)
 
@@ -94,7 +95,8 @@ def get_portfolio_merger() -> PortfolioMerger:
 
 @router.get("/", response_class=HTMLResponse)
 async def dashboard_get(
-    request: Request, username: Annotated[str, Depends(verify_credentials)]
+    request: Request,
+    current_user: Annotated[User | None, Depends(get_optional_current_user)] = None,
 ) -> HTMLResponse:
     """Render the dashboard with upload form."""
     return templates.TemplateResponse(
@@ -105,7 +107,7 @@ async def dashboard_get(
             "total_value_formatted": None,
             "chart_data_json": None,
             "error": None,
-            "username": username,
+            "username": current_user.email if current_user else None,
             "ai_analysis_markdown": "",
         },
     )
@@ -119,7 +121,7 @@ async def upload_portfolio(
     fio_parser: Annotated[FioBrokerPortfolioParser, Depends(get_fio_parser)],
     portfolio_merger: Annotated[PortfolioMerger, Depends(get_portfolio_merger)],
     gemini_service: Annotated[GeminiAIService, Depends(get_gemini_service)],
-    username: Annotated[str, Depends(verify_credentials)],
+    current_user: Annotated[User | None, Depends(get_optional_current_user)] = None,
     degiro_file: Annotated[UploadFile | None, Form()] = None,
     fio_file: Annotated[UploadFile | None, Form()] = None,
 ) -> HTMLResponse:
@@ -188,7 +190,7 @@ async def upload_portfolio(
                 "total_value_formatted": total_value_formatted,
                 "chart_data_json": chart_data_json,
                 "error": None,
-                "username": username,
+                "username": current_user.email if current_user else None,
                 "ai_analysis_markdown": ai_analysis_markdown,
             },
         )
@@ -204,6 +206,6 @@ async def upload_portfolio(
                 "total_value_formatted": None,
                 "chart_data_json": None,
                 "error": f"Error processing portfolio: {str(e)}",
-                "username": username,
+                "username": current_user.email if current_user else None,
             },
         )

@@ -7,7 +7,7 @@ import pytest
 from portfolio_assistant.config import Settings
 
 # Vynucení testovacího prostředí
-os.environ["ENVIRONMENT"] = "testing"
+os.environ["PORTFOLIO_ENVIRONMENT"] = "testing"
 
 
 @pytest.fixture

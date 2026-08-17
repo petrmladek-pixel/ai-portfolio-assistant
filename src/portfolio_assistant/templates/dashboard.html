@@ -11,8 +11,20 @@
 </head>
 <body class="bg-gray-100 min-h-screen">
     <div class="container mx-auto px-4 py-8">
-        <h1 class="text-3xl font-bold text-center mb-8 text-gray-800">Portfolio Dashboard</h1>
+        <div class="flex justify-between items-center mb-8">
+            <h1 class="text-3xl font-bold text-gray-800">Portfolio Dashboard</h1>
+            <div>
+                {% if username %}
+                <span class="text-gray-700 mr-4">Hello, {{ username }}</span>
+                <a href="/auth/logout" class="text-indigo-600 hover:text-indigo-800">Logout</a>
+                {% else %}
+                <a href="/auth/register" class="text-indigo-600 hover:text-indigo-800 mr-4">Register</a>
+                <a href="/auth/login" class="text-indigo-600 hover:text-indigo-800">Login</a>
+                {% endif %}
+            </div>
+        </div>
 
+         {% if username %}
          <div class="max-w-2xl mx-auto bg-white rounded-lg shadow-md p-6 mb-8">
              <h2 class="text-xl font-semibold mb-4 text-gray-700">Upload Portfolio CSV</h2>
              <form action="/upload" method="post" enctype="multipart/form-data" class="space-y-4">
@@ -34,6 +46,14 @@
                  </button>
              </form>
          </div>
+         {% else %}
+         <div class="max-w-2xl mx-auto bg-white rounded-lg shadow-md p-6 mb-8 text-center">
+             <h2 class="text-xl font-semibold mb-4 text-gray-700">Get Started</h2>
+             <p class="text-gray-600 mb-4">To upload and analyze your portfolio, please register or log in.</p>
+             <a href="/auth/register" class="bg-indigo-600 text-white py-2 px-4 rounded-md hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 mr-4">Register</a>
+             <a href="/auth/login" class="bg-gray-200 text-gray-700 py-2 px-4 rounded-md hover:bg-gray-300 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-500">Login</a>
+         </div>
+         {% endif %}
 
         {% if error %}
         <div class="max-w-4xl mx-auto bg-red-50 border-l-4 border-red-500 p-4 mb-8">
