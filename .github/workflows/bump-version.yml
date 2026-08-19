@@ -34,6 +34,9 @@ jobs:
           fetch-depth: 0
           token: ${{ steps.app-token.outputs.token }}
 
+      - name: Fetch all git tags
+        run: git fetch --tags --forc
+
       - name: Install uv and Set up Python
         uses: astral-sh/setup-uv@v5
         with:
@@ -57,7 +60,7 @@ jobs:
         run: |
           # Only push if there are actual local commits (e.g., version was bumped)
           if [ "$(git rev-parse HEAD)" != "$(git rev-parse origin/main)" ]; then
-            git push origin HEAD:main --follow-tags
+            git push origin HEAD:main --tags
           else
             echo "No version changes detected. Skipping push."
           fi
