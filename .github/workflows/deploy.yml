@@ -6,8 +6,8 @@ on:
       - 'v*'
 
 env:
-  PROJECT_ID: "TVOJE_PROJECT_ID" # Tady klidně napiš své ID napřímo
-  PROJECT_NUMBER: "CISLO_PROJEKTU" # Sem vlož to číslo projektu
+  PROJECT_ID: ${{ secrets.GCP_PROJECT }}
+  PROJECT_NUMBER: ${{ secrets.GCP_PROJECT_NUMBER }}
   REGION: europe-west1
   GAR_REPOSITORY: ai-portfolio-assistant
   SERVICE: ai-portfolio-assistant
@@ -17,7 +17,6 @@ jobs:
     name: Build and Deploy
     runs-on: ubuntu-latest
 
-    # --- KLÍČOVÉ: Povolení získání OIDC tokenu z GitHubu ---
     permissions:
       contents: read
       id-token: write
@@ -26,16 +25,16 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      # 1. Bezklíčové přihlášení do GCP přes Workload Identity Federation
+      # 1. Keyless login to GCP via Workload Identity Federation
       - name: Google Auth
         id: auth
         uses: google-github-actions/auth@v2
         with:
-          token_format: 'access_token' # Vyžádáme si přístupový token pro Docker
+          token_format: 'access_token'
           workload_identity_provider: 'projects/${{ env.PROJECT_NUMBER }}/locations/global/workloadIdentityPools/github-pool/providers/github-provider'
           service_account: 'github-deployer@${{ env.PROJECT_ID }}.iam.gserviceaccount.com'
 
-      # 2. Přihlášení Dockeru do Artifact Registry pomocí dočasného tokenu
+      # 2. Authenticate Docker with Artifact Registry
       - name: Docker Auth
         uses: docker/login-action@v3
         with:
@@ -43,14 +42,14 @@ jobs:
           username: oauth2accesstoken
           password: ${{ steps.auth.outputs.access_token }}
 
-      # 3. Sestavení a odeslání kontejneru
+      # 3. Build and push the container image
       - name: Build and Push Container
         run: |
           IMAGE_NAME="${{ env.REGION }}-docker.pkg.dev/${{ env.PROJECT_ID }}/${{ env.GAR_REPOSITORY }}/${{ env.SERVICE }}:${{ github.ref_name }}"
           docker build -t "$IMAGE_NAME" .
           docker push "$IMAGE_NAME"
 
-      # 4. Nasazení na Cloud Run
+      # 4. Deploy to Google Cloud Run
       - name: Deploy to Cloud Run
         id: deploy
         uses: google-github-actions/deploy-cloudrun@v2
