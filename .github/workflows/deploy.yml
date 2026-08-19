@@ -34,7 +34,13 @@ jobs:
           workload_identity_provider: 'projects/${{ env.PROJECT_NUMBER }}/locations/global/workloadIdentityPools/github-pool/providers/github-provider'
           service_account: 'github-deployer@${{ env.PROJECT_ID }}.iam.gserviceaccount.com'
 
-      # 2. Authenticate Docker with Artifact Registry
+      # 2. Set Image Name dynamically in GITHUB_ENV to avoid DRY violations
+      - name: Set Image Name
+        run: |
+          IMAGE_PATH="${{ env.REGION }}-docker.pkg.dev/${{ env.PROJECT_ID }}/${{ env.GAR_REPOSITORY }}/${{ env.SERVICE }}:${{ github.ref_name }}"
+          echo "IMAGE_NAME=$IMAGE_PATH" >> $GITHUB_ENV
+
+      # 3. Authenticate Docker with Artifact Registry
       - name: Docker Auth
         uses: docker/login-action@v3
         with:
@@ -42,21 +48,20 @@ jobs:
           username: oauth2accesstoken
           password: ${{ steps.auth.outputs.access_token }}
 
-      # 3. Build and push the container image
+      # 4. Build and push the container image using the shared env variable
       - name: Build and Push Container
         run: |
-          IMAGE_NAME="${{ env.REGION }}-docker.pkg.dev/${{ env.PROJECT_ID }}/${{ env.GAR_REPOSITORY }}/${{ env.SERVICE }}:${{ github.ref_name }}"
-          docker build -t "$IMAGE_NAME" .
-          docker push "$IMAGE_NAME"
+          docker build -t "${{ env.IMAGE_NAME }}" .
+          docker push "${{ env.IMAGE_NAME }}"
 
-      # 4. Deploy to Google Cloud Run
+      # 5. Deploy to Google Cloud Run using the shared env variable
       - name: Deploy to Cloud Run
         id: deploy
         uses: google-github-actions/deploy-cloudrun@v2
         with:
           service: ${{ env.SERVICE }}
           region: ${{ env.REGION }}
-          image: ${{ env.REGION }}-docker.pkg.dev/${{ env.PROJECT_ID }}/${{ env.GAR_REPOSITORY }}/${{ env.SERVICE }}:${{ github.ref_name }}
+          image: ${{ env.IMAGE_NAME }}
 
       - name: Show Output URL
         run: echo "Application successfully deployed to ${{ steps.deploy.outputs.url }}"
