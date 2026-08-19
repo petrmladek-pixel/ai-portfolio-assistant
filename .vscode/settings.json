@@ -4,6 +4,7 @@
     ],
     "python.testing.unittestEnabled": false,
     "python.testing.pytestEnabled": true,
+    "python.envFile": "${workspaceFolder}/.env",
 
     // Auto-clean whitespace and newlines on every save
     "files.trimTrailingWhitespace": true,

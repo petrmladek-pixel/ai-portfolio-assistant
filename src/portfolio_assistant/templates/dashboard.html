@@ -3,186 +3,361 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Portfolio Dashboard</title>
+    <title>Portfolio Assistant</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/dompurify/dist/purify.min.js"></script>
+    <style>
+        .modal {
+            transition: opacity 0.25s ease;
+        }
+        body.modal-active {
+            overflow-x: hidden;
+            overflow-y: hidden !important;
+        }
+    </style>
 </head>
 <body class="bg-gray-100 min-h-screen">
     <div class="container mx-auto px-4 py-8">
-        <h1 class="text-3xl font-bold text-center mb-8 text-gray-800">Portfolio Dashboard</h1>
-
-         <div class="max-w-2xl mx-auto bg-white rounded-lg shadow-md p-6 mb-8">
-             <h2 class="text-xl font-semibold mb-4 text-gray-700">Upload Portfolio CSV</h2>
-             <form action="/upload" method="post" enctype="multipart/form-data" class="space-y-4">
-                 <div>
-                     <label for="degiro_file" class="block text-sm font-medium text-gray-700 mb-1">DEGIRO CSV File</label>
-                     <input type="file" name="degiro_file" id="degiro_file" accept=".csv"
-                            class="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500">
-                     <p class="mt-1 text-sm text-gray-500">Upload your DEGIRO portfolio CSV file</p>
-                 </div>
-                 <div>
-                     <label for="fio_file" class="block text-sm font-medium text-gray-700 mb-1">Fio e-Broker CSV File</label>
-                     <input type="file" name="fio_file" id="fio_file" accept=".csv"
-                            class="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500">
-                     <p class="mt-1 text-sm text-gray-500">Upload your Fio e-Broker portfolio CSV file</p>
-                 </div>
-                 <button type="submit"
-                         class="w-full bg-indigo-600 text-white py-2 px-4 rounded-md hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500">
-                     Upload and Analyze
-                 </button>
-             </form>
-         </div>
-
-        {% if error %}
-        <div class="max-w-4xl mx-auto bg-red-50 border-l-4 border-red-500 p-4 mb-8">
-            <div class="flex">
-                <div class="flex-shrink-0">
-                    <svg class="h-5 w-5 text-red-500" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
-                        <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clip-rule="evenodd" />
-                    </svg>
+        <!-- Header -->
+        <div class="flex justify-between items-center mb-8 bg-white p-6 rounded-lg shadow-sm">
+            <div>
+                <h1 class="text-3xl font-bold text-indigo-800">Portfolio Assistant</h1>
+                <p class="text-gray-500">Analyze and track your investments</p>
+            </div>
+            <div id="auth-section">
+                {% if username %}
+                <div class="flex items-center space-x-4">
+                    <span class="text-gray-700 font-medium">Hello, {{ username }}</span>
+                    <button onclick="logout()" class="bg-red-50 text-red-600 px-4 py-2 rounded-md hover:bg-red-100 transition-colors">Logout</button>
                 </div>
-                <div class="ml-3">
-                    <p class="text-sm text-red-700">{{ error }}</p>
+                {% else %}
+                <div class="flex space-x-4">
+                    <button onclick="toggleModal('login-modal')" class="text-indigo-600 hover:text-indigo-800 font-medium">Login</button>
+                    <button onclick="toggleModal('register-modal')" class="bg-indigo-600 text-white px-4 py-2 rounded-md hover:bg-indigo-700 transition-colors">Register</button>
                 </div>
+                {% endif %}
+            </div>
+        </div>
+
+        {% if not username %}
+        <!-- Welcome Section -->
+        <div class="max-w-4xl mx-auto bg-white rounded-xl shadow-lg p-10 text-center mb-8 border-t-4 border-indigo-600">
+            <div class="mb-6">
+                <svg class="w-20 h-20 text-indigo-600 mx-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6"></path>
+                </svg>
+            </div>
+            <h2 class="text-3xl font-bold text-gray-800 mb-4">Master Your Portfolio</h2>
+            <p class="text-xl text-gray-600 mb-8 leading-relaxed">
+                Import data from DEGIRO or Fio e-Broker, visualize your allocation, and get AI-powered insights to optimize your strategy.
+            </p>
+            <div class="flex justify-center space-x-6">
+                <button onclick="toggleModal('register-modal')" class="bg-indigo-600 text-white px-8 py-3 rounded-lg text-lg font-semibold hover:bg-indigo-700 transition-colors shadow-md">Get Started for Free</button>
             </div>
         </div>
         {% endif %}
 
-        {% if valued_portfolio %}
-        <div class="max-w-6xl mx-auto bg-white rounded-lg shadow-md p-6 mb-8">
-            <h2 class="text-xl font-semibold mb-4 text-gray-700">Portfolio Summary</h2>
+        {% if username %}
+        <!-- Main Dashboard for Authenticated Users -->
+        <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
+            <!-- Left Column: Upload & Controls -->
+            <div class="lg:col-span-1 space-y-8">
+                <div class="bg-white rounded-xl shadow-md p-6 border-t-4 border-indigo-500">
+                    <h2 class="text-xl font-bold mb-6 text-gray-800 flex items-center">
+                        <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12"></path>
+                        </svg>
+                        Upload & Analyze
+                    </h2>
 
-            <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
-                <div class="bg-gray-50 p-4 rounded-lg">
-                    <p class="text-sm text-gray-600">Total Value</p>
-                    <p class="text-2xl font-bold text-gray-800">{{ total_value_formatted }}</p>
+                    <form action="/upload" method="post" enctype="multipart/form-data" class="space-y-6">
+                        <div class="bg-indigo-50 p-4 rounded-lg border border-indigo-100">
+                            <label for="degiro_file" class="block text-sm font-semibold text-indigo-900 mb-2">DEGIRO CSV</label>
+                            <input type="file" name="degiro_file" id="degiro_file" accept=".csv"
+                                   class="block w-full text-sm text-indigo-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-indigo-600 file:text-white hover:file:bg-indigo-700 cursor-pointer">
+                        </div>
+
+                        <div class="bg-blue-50 p-4 rounded-lg border border-blue-100">
+                            <label for="fio_file" class="block text-sm font-semibold text-blue-900 mb-2">Fio e-Broker CSV</label>
+                            <input type="file" name="fio_file" id="fio_file" accept=".csv"
+                                   class="block w-full text-sm text-blue-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-blue-600 file:text-white hover:file:bg-blue-700 cursor-pointer">
+                        </div>
+
+                        <button type="submit"
+                                class="w-full bg-indigo-600 text-white py-3 px-4 rounded-lg font-bold text-lg hover:bg-indigo-700 transition-all shadow-lg hover:shadow-xl flex items-center justify-center">
+                            <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"></path>
+                            </svg>
+                            Sync & Analyze
+                        </button>
+                    </form>
                 </div>
-                <div class="bg-gray-50 p-4 rounded-lg">
-                    <p class="text-sm text-gray-600">Currency</p>
-                    <p class="text-2xl font-bold text-gray-800">{{ valued_portfolio.target_currency }}</p>
-                </div>
-                <div class="bg-gray-50 p-4 rounded-lg">
-                    <p class="text-sm text-gray-600">Valuation Date</p>
-                    <p class="text-2xl font-bold text-gray-800">{{ valued_portfolio.valued_at.strftime('%Y-%m-%d %H:%M:%S') }}</p>
+
+                <!-- Existing Portfolio Info -->
+                <div id="saved-portfolio-card" class="bg-white rounded-xl shadow-md p-6 hidden">
+                    <h2 class="text-xl font-bold mb-4 text-gray-800">Saved Portfolio</h2>
+                    <div id="saved-portfolio-details" class="space-y-3">
+                        <!-- Filled by JS -->
+                    </div>
+                    <button onclick="window.location.reload()" class="mt-4 w-full text-indigo-600 font-medium hover:underline">Refresh Data</button>
                 </div>
             </div>
 
-            <h3 class="text-lg font-semibold mb-4 text-gray-700">Positions</h3>
+            <!-- Right Column: Results & Insights -->
+            <div class="lg:col-span-2 space-y-8">
+                {% if error %}
+                <div class="bg-red-50 border-l-8 border-red-500 p-6 rounded-lg shadow-sm">
+                    <div class="flex items-center">
+                        <svg class="w-8 h-8 text-red-500 mr-3" fill="currentColor" viewBox="0 0 20 20">
+                            <path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z" clip-rule="evenodd" />
+                        </svg>
+                        <div>
+                            <h3 class="text-lg font-bold text-red-800">Error Occurred</h3>
+                            <p class="text-red-700">{{ error }}</p>
+                        </div>
+                    </div>
+                </div>
+                {% endif %}
 
-            <div class="overflow-x-auto">
-                <table class="min-w-full divide-y divide-gray-200">
-                    <thead class="bg-gray-50">
-                        <tr>
-                            <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Ticker</th>
-                            <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Name</th>
-                            <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Quantity</th>
-                            <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Price</th>
-                            <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Total Value</th>
-                            <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Weight</th>
-                        </tr>
-                    </thead>
-                    <tbody class="bg-white divide-y divide-gray-200">
-                        {% for position in valued_portfolio.positions %}
-                        <tr>
-                            <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">{{ position.ticker }}</td>
-                            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{{ position.name or '-' }}</td>
-                            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{{ position.quantity }}</td>
-                            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{{ position.unit_price_target|format_currency }}</td>
-                            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{{ position.total_value_target|format_currency }}</td>
-                            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{{ (position.weight * 100)|round(2) }}%</td>
-                        </tr>
-                        {% endfor %}
-                    </tbody>
-                </table>
+                {% if valued_portfolio %}
+                <!-- Portfolio Metrics -->
+                <div class="bg-white rounded-xl shadow-md p-8 border-b-4 border-indigo-500">
+                    <div class="flex flex-col md:flex-row justify-between items-start md:items-center mb-8">
+                        <div>
+                            <h2 class="text-2xl font-bold text-gray-800">Portfolio Performance</h2>
+                            <p class="text-gray-500">As of {{ valued_portfolio.valued_at.strftime('%Y-%m-%d %H:%M:%S') }}</p>
+                        </div>
+                        <div class="mt-4 md:mt-0 bg-indigo-600 text-white px-6 py-3 rounded-2xl shadow-lg">
+                            <span class="text-sm opacity-80 block">Total Net Worth</span>
+                            <span class="text-3xl font-extrabold">{{ total_value_formatted }} {{ valued_portfolio.target_currency }}</span>
+                        </div>
+                    </div>
+
+                    <!-- Charts & Table -->
+                    <div class="grid grid-cols-1 xl:grid-cols-2 gap-8 mb-8">
+                        <div class="bg-gray-50 p-6 rounded-xl border border-gray-100">
+                            <h3 class="text-lg font-bold mb-4 text-gray-700 text-center">Asset Allocation</h3>
+                            <div class="relative h-64">
+                                <canvas id="allocationChart"></canvas>
+                            </div>
+                        </div>
+                        <div class="overflow-x-auto bg-white rounded-xl border border-gray-100">
+                            <table class="min-w-full divide-y divide-gray-200">
+                                <thead class="bg-gray-50">
+                                    <tr>
+                                        <th class="px-4 py-3 text-left text-xs font-bold text-gray-500 uppercase">Ticker</th>
+                                        <th class="px-4 py-3 text-right text-xs font-bold text-gray-500 uppercase">Value</th>
+                                        <th class="px-4 py-3 text-right text-xs font-bold text-gray-500 uppercase">Weight</th>
+                                    </tr>
+                                </thead>
+                                <tbody class="divide-y divide-gray-200">
+                                    {% for position in valued_portfolio.positions %}
+                                    <tr class="hover:bg-indigo-50 transition-colors">
+                                        <td class="px-4 py-3 text-sm font-bold text-gray-900">{{ position.ticker }}</td>
+                                        <td class="px-4 py-3 text-sm text-right text-gray-600">{{ position.total_value_target|format_currency }}</td>
+                                        <td class="px-4 py-3 text-sm text-right font-medium text-indigo-600">{{ (position.weight * 100)|round(1) }}%</td>
+                                    </tr>
+                                    {% endfor %}
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+
+                    <!-- AI Insights -->
+                    <div class="bg-gradient-to-br from-indigo-900 to-blue-900 text-white rounded-xl p-8 shadow-inner">
+                        <div class="flex items-center mb-6">
+                            <div class="bg-indigo-500 p-2 rounded-lg mr-4">
+                                <svg class="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"></path>
+                                </svg>
+                            </div>
+                            <h3 class="text-2xl font-bold">AI Intelligent Review</h3>
+                        </div>
+                        <div id="ai-analysis-rendered" class="prose prose-invert max-w-none text-indigo-100">
+                            <p class="italic animate-pulse">Generating your personalized investment strategy...</p>
+                        </div>
+                    </div>
+                </div>
+                {% else %}
+                <!-- Empty State / Instructions -->
+                <div id="no-data-placeholder" class="bg-white rounded-xl shadow-md p-12 text-center border-2 border-dashed border-gray-300">
+                    <svg class="w-16 h-16 text-gray-300 mx-auto mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 17v-2m3 2v-4m3 4v-6m2 10H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
+                    </svg>
+                    <h3 class="text-xl font-bold text-gray-700">No Portfolio Loaded</h3>
+                    <p class="text-gray-500 mt-2">Upload your broker export files on the left to start the analysis.</p>
+                </div>
+                {% endif %}
             </div>
         </div>
+        {% endif %}
 
-        <div class="max-w-4xl mx-auto bg-white rounded-lg shadow-md p-6">
-            <h3 class="text-lg font-semibold mb-4 text-gray-700">Allocation Chart</h3>
-            <div class="relative h-96">
-                <canvas id="allocationChart"></canvas>
-            </div>
-        </div>
-
-        <div class="max-w-4xl mx-auto bg-white rounded-lg shadow-md p-6 mt-6">
-            <h2 class="text-xl font-bold text-gray-800 mb-4">AI Analýza Portfolia</h2>
-            <div id="ai-analysis-rendered" class="prose max-w-none text-gray-700">
-                <p class="text-gray-500 italic">Analýza se načítá nebo nebyla vygenerována...</p>
-            </div>
-        </div>
-
+        <!-- Hidden Data Elements -->
+        {% if chart_data_json %}
         <div id="chart-data" data-chart='{{ chart_data_json }}' class="hidden"></div>
-        <div id="ai-analysis-data" style="display: none;" data-raw-markdown="{{ ai_analysis_markdown }}"></div>
+        {% endif %}
+        {% if ai_analysis_markdown %}
+        <div id="ai-analysis-data" class="hidden" data-raw-markdown="{{ ai_analysis_markdown }}"></div>
+        {% endif %}
+    </div>
 
-        <script>
-            // Initialize the chart when the page loads
-            document.addEventListener('DOMContentLoaded', function() {
-                const chartDataEl = document.getElementById('chart-data');
+    <!-- Modals -->
+    <!-- Login Modal -->
+    <div id="login-modal" class="modal opacity-0 pointer-events-none fixed w-full h-full top-0 left-0 flex items-center justify-center z-50">
+        <div class="modal-overlay absolute w-full h-full bg-gray-900 opacity-50"></div>
+        <div class="modal-container bg-white w-11/12 md:max-w-md mx-auto rounded shadow-lg z-50 overflow-y-auto">
+            <div class="modal-content py-4 text-left px-6">
+                <div class="flex justify-between items-center pb-3 border-b border-gray-200">
+                    <p class="text-2xl font-bold text-gray-800">Welcome Back</p>
+                    <button onclick="toggleModal('login-modal')" class="text-gray-400 hover:text-gray-600">
+                        <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+                        </svg>
+                    </button>
+                </div>
+                <form id="login-form" class="mt-6 space-y-4" onsubmit="handleAuth(event, 'login')">
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700">Email Address</label>
+                        <input type="email" name="email" required class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm p-2 focus:ring-indigo-500 focus:border-indigo-500">
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700">Password</label>
+                        <input type="password" name="password" required class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm p-2 focus:ring-indigo-500 focus:border-indigo-500">
+                    </div>
+                    <button type="submit" class="w-full bg-indigo-600 text-white py-2 rounded-md font-bold hover:bg-indigo-700">Login</button>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- Register Modal -->
+    <div id="register-modal" class="modal opacity-0 pointer-events-none fixed w-full h-full top-0 left-0 flex items-center justify-center z-50">
+        <div class="modal-overlay absolute w-full h-full bg-gray-900 opacity-50"></div>
+        <div class="modal-container bg-white w-11/12 md:max-w-md mx-auto rounded shadow-lg z-50 overflow-y-auto">
+            <div class="modal-content py-4 text-left px-6">
+                <div class="flex justify-between items-center pb-3 border-b border-gray-200">
+                    <p class="text-2xl font-bold text-gray-800">Create Account</p>
+                    <button onclick="toggleModal('register-modal')" class="text-gray-400 hover:text-gray-600">
+                        <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+                        </svg>
+                    </button>
+                </div>
+                <form id="register-form" class="mt-6 space-y-4" onsubmit="handleAuth(event, 'register')">
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700">Full Name</label>
+                        <input type="text" name="full_name" required class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm p-2 focus:ring-indigo-500 focus:border-indigo-500">
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700">Email Address</label>
+                        <input type="email" name="email" required class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm p-2 focus:ring-indigo-500 focus:border-indigo-500">
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700">Password</label>
+                        <input type="password" name="password" required class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm p-2 focus:ring-indigo-500 focus:border-indigo-500">
+                    </div>
+                    <button type="submit" class="w-full bg-indigo-600 text-white py-2 rounded-md font-bold hover:bg-indigo-700">Create Account</button>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Modal helpers
+        function toggleModal(modalId) {
+            const modal = document.getElementById(modalId);
+            modal.classList.toggle('opacity-0');
+            modal.classList.toggle('pointer-events-none');
+            document.body.classList.toggle('modal-active');
+        }
+
+        // Auth handlers
+        async function handleAuth(event, type) {
+            event.preventDefault();
+            const formData = new FormData(event.target);
+            const data = Object.fromEntries(formData.entries());
+
+            try {
+                const response = await fetch(`/api/auth/${type}`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(data)
+                });
+
+                if (response.ok) {
+                    window.location.reload();
+                } else {
+                    const err = await response.json();
+                    alert(err.detail || 'Authentication failed');
+                }
+            } catch (error) {
+                alert('Network error during authentication');
+            }
+        }
+
+        async function logout() {
+            await fetch('/api/auth/logout', { method: 'POST' });
+            window.location.reload();
+        }
+
+        // Dashboard data fetching
+        async function loadPortfolioInfo() {
+            try {
+                const response = await fetch('/api/portfolio/me');
+                if (response.ok) {
+                    const data = await response.json();
+                    if (data.positions && data.positions.length > 0) {
+                        const card = document.getElementById('saved-portfolio-card');
+                        const details = document.getElementById('saved-portfolio-details');
+                        card.classList.remove('hidden');
+
+                        details.innerHTML = `
+                            <div class="flex justify-between"><span class="text-gray-500">Source:</span> <span class="font-bold">${data.broker_name}</span></div>
+                            <div class="flex justify-between"><span class="text-gray-500">Holdings:</span> <span class="font-bold">${data.positions.length}</span></div>
+                        `;
+                    }
+                }
+            } catch (e) { console.error('Failed to load portfolio info'); }
+        }
+
+        // Visualization
+        document.addEventListener('DOMContentLoaded', function() {
+            // Load background info
+            if (document.getElementById('saved-portfolio-card')) {
+                loadPortfolioInfo();
+            }
+
+            // Render chart
+            const chartDataEl = document.getElementById('chart-data');
+            if (chartDataEl) {
                 const chartData = JSON.parse(chartDataEl.dataset.chart);
                 const ctx = document.getElementById('allocationChart').getContext('2d');
-
                 new Chart(ctx, {
                     type: 'doughnut',
                     data: {
                         labels: chartData.labels,
                         datasets: [{
                             data: chartData.weights,
-                            backgroundColor: [
-                                '#4F46E5', '#7C3AED', '#DB2777', '#F59E0B',
-                                '#10B981', '#06B6D4', '#3B82F6', '#8B5CF6',
-                                '#EC4899', '#F97316', '#EF4444', '#14B8A6'
-                            ],
-                            borderWidth: 1
+                            backgroundColor: ['#4F46E5', '#7C3AED', '#DB2777', '#F59E0B', '#10B981', '#06B6D4', '#3B82F6', '#8B5CF6'],
+                            hoverOffset: 15
                         }]
                     },
-                    options: {
-                        responsive: true,
-                        maintainAspectRatio: false,
-                        plugins: {
-                            legend: {
-                                position: 'right'
-                            },
-                            tooltip: {
-                                callbacks: {
-                                    label: function(context) {
-                                        const label = context.label || '';
-                                        const value = context.parsed || 0;
-                                        return label + ': ' + value.toFixed(2) + '%';
-                                    }
-                                }
-                            }
-                        }
-                    }
+                    options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } } }
                 });
+            }
 
-                // Initialize AI analysis rendering
-                const aiAnalysisEl = document.getElementById('ai-analysis-data');
-                const aiAnalysisRenderedEl = document.getElementById('ai-analysis-rendered');
-
-                if (aiAnalysisEl && aiAnalysisRenderedEl) {
-                    const rawMarkdown = aiAnalysisEl.dataset.rawMarkdown;
-
-                    if (rawMarkdown && rawMarkdown.trim()) {
-                        try {
-                            // Parse markdown and sanitize HTML
-                            const parsedHtml = marked.parse(rawMarkdown);
-                            const cleanHtml = DOMPurify.sanitize(parsedHtml);
-
-                            // Update the rendered content
-                            aiAnalysisRenderedEl.innerHTML = cleanHtml;
-                        } catch (error) {
-                            console.error('Failed to render AI analysis:', error);
-                            aiAnalysisRenderedEl.innerHTML = (
-                                '<p class="text-gray-500 italic">Analýza se načítá nebo nebyla vygenerována...</p>'
-                            );
-                        }
-                    }
+            // Render AI Analysis
+            const aiDataEl = document.getElementById('ai-analysis-data');
+            const aiRenderEl = document.getElementById('ai-analysis-rendered');
+            if (aiDataEl && aiRenderEl) {
+                const rawMarkdown = aiDataEl.dataset.rawMarkdown;
+                if (rawMarkdown) {
+                    aiRenderEl.innerHTML = DOMPurify.sanitize(marked.parse(rawMarkdown));
                 }
-            });
-        </script>
-        {% endif %}
-    </div>
+            }
+        });
+    </script>
 </body>
 </html>

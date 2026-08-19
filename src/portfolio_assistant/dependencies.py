@@ -1,68 +1,58 @@
 """Global dependencies for the portfolio assistant application."""
 
-import secrets
 from typing import Annotated
 
-from fastapi import Depends, HTTPException, status
-from fastapi.security import HTTPBasic, HTTPBasicCredentials
+from fastapi import Depends, HTTPException, Request, status
+from sqlmodel import Session
 
 from portfolio_assistant.config import get_settings
+from portfolio_assistant.core.database import get_db_session
+from portfolio_assistant.core.security import get_current_user as security_get_user
+from portfolio_assistant.models.user import User
 
-# Security setup for Basic Authentication
-security = HTTPBasic()
 
-
-def verify_credentials(
-    credentials: Annotated[HTTPBasicCredentials, Depends(security)],
-) -> str:
+async def get_current_user(
+    request: Request,
+    db: Annotated[Session, Depends(get_db_session)],
+) -> User:
     """
-    Verify basic authentication credentials against configuration settings.
-
-    Uses secrets.compare_digest to prevent timing attacks.
-    In production, credentials must be explicitly configured
-    (enforced by Pydantic validator).
-    In non-production environments, falls back to "admin"/"admin" for local testing.
+    Get the current authenticated user from a secure HttpOnly cookie.
 
     Args:
-        credentials: HTTPBasicCredentials from FastAPI security dependency
+        request: FastAPI request object
+        db: Database session
 
     Returns:
-        str: The authenticated username
+        User: The authenticated user object
 
     Raises:
-        HTTPException: 401 Unauthorized if credentials are invalid
+        HTTPException: 401 if not authenticated or user not found
     """
     settings = get_settings()
+    token = request.cookies.get(settings.session_cookie_name)
 
-    # Retrieve expected values from configuration
-    expected_username = settings.web_basic_auth_username
-    expected_password = settings.web_basic_auth_password
-
-    # For non-production environments, allow fallback to "admin"/"admin" for
-    # easy local testing
-    # Production environments are already guarded by Pydantic validator to ensure
-    # explicit configuration
-    if settings.environment != "production":
-        expected_username = expected_username or "admin"
-        expected_password = expected_password or "admin"
-    else:
-        # In production, these should never be None due to Pydantic validation,
-        # but we provide a safety net to ensure they're always strings
-        expected_username = expected_username or ""
-        expected_password = expected_password or ""
-
-    # Use secrets.compare_digest to prevent timing attacks
-    is_correct_username = secrets.compare_digest(
-        credentials.username, str(expected_username)
-    )
-    is_correct_password = secrets.compare_digest(
-        credentials.password, str(expected_password)
-    )
-
-    if not (is_correct_username and is_correct_password):
+    if not token:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Incorrect username or password",
-            headers={"WWW-Authenticate": "Basic"},
+            detail="Not authenticated. Please log in.",
         )
-    return credentials.username
+
+    # We reuse the core security implementation
+    return await security_get_user(request, db)
+
+
+async def get_optional_current_user(
+    request: Request,
+    db: Annotated[Session, Depends(get_db_session)],
+) -> User | None:
+    """
+    Get the current authenticated user from a secure HttpOnly cookie, or None
+    if not authenticated.
+    """
+    settings = get_settings()
+    token = request.cookies.get(settings.session_cookie_name)
+
+    if not token:
+        return None
+
+    return await security_get_user(request, db)
