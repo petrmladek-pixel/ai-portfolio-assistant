@@ -273,13 +273,9 @@ def test_post_upload_no_files_raises_400(test_db_session: Session):
     try:
         response = client.post("/upload", files=files)
 
+        assert response.status_code == 400
         assert (
-            response.status_code == 200
-        )  # Expect 200 because it renders the dashboard with an error
-        assert "text/html" in response.headers["content-type"]
-        assert (
-            "Error processing portfolio: 400: "
-            "At least one portfolio file must be provided." in response.text
+            response.json()["detail"] == "At least one portfolio file must be provided."
         )
     finally:
         _teardown_mock_services()

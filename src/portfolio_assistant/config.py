@@ -40,7 +40,7 @@ class Settings(BaseSettings):
 
     # Security settings
     secret_key: str = Field(
-        default="dev-secret-key-change-me-in-production",
+        default="dev-secret-key-change-me-in-production-123",
         description="Secret key for JWT signing",
     )
     algorithm: str = Field(default="HS256", description="JWT algorithm")
@@ -69,8 +69,12 @@ class Settings(BaseSettings):
             ValueError: If production environment has missing security configuration
         """
         if self.environment == "production":
-            if self.secret_key == "dev-secret-key-change-me-in-production":
-                raise ValueError("In production, SECRET_KEY must be changed.")
+            default_placeholder = "dev-secret-key-change-me-in-production-123"
+            if not self.secret_key or self.secret_key == default_placeholder:
+                raise ValueError(
+                    "A secure SECRET_KEY must be configured in production "
+                    "environment variables."
+                )
 
             if not self.web_basic_auth_username or not self.web_basic_auth_password:
                 raise ValueError(

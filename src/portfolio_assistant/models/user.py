@@ -1,5 +1,6 @@
 from typing import TYPE_CHECKING
 
+from pydantic import Field as PydanticField
 from sqlmodel import Field, Relationship, SQLModel
 
 if TYPE_CHECKING:
@@ -21,7 +22,7 @@ class User(UserBase, table=True):
 
 
 class UserCreate(UserBase):
-    password: str
+    password: str = PydanticField(min_length=8, max_length=100)
 
 
 class UserPublic(UserBase):

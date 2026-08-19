@@ -9,6 +9,7 @@ from typing import Annotated
 from fastapi import APIRouter, Depends, Form, HTTPException, Request, UploadFile
 from fastapi.responses import HTMLResponse
 from fastapi.templating import Jinja2Templates
+from sqlalchemy.exc import SQLAlchemyError
 from sqlmodel import Session
 
 from portfolio_assistant.models.portfolio import Currency
@@ -168,9 +169,12 @@ async def dashboard_get(
                 # Format total value
                 total_value_formatted = format_currency(valued_portfolio.total_value)
 
-        except Exception as e:
-            logger.exception("Failed to load existing portfolio for dashboard")
-            error = f"Error loading your portfolio: {str(e)}"
+        except SQLAlchemyError:
+            logger.exception("Database error while loading portfolio for dashboard")
+            error = "Database persistence failed."
+        except Exception:
+            logger.exception("Unexpected error while loading portfolio for dashboard")
+            error = "An unexpected error occurred."
 
     return templates.TemplateResponse(
         request=request,
@@ -235,41 +239,57 @@ async def upload_portfolio(
 
         from sqlmodel import select
 
-        # Delete any existing portfolio and positions for this user (upsert behavior)
-        existing_stmt = select(Portfolio).where(Portfolio.owner_id == current_user.id)
-        existing_portfolios = db.exec(existing_stmt).all()
-        for ep in existing_portfolios:
-            # Remove all associated positions
-            for pos in ep.positions:
-                db.delete(pos)
-            db.delete(ep)
-        db.commit()
-
-        # Create new Portfolio
-        db_portfolio = Portfolio(
-            name=final_portfolio.broker_name,
-            description=f"Uploaded at {final_portfolio.imported_at.isoformat()}",
-            owner_id=current_user.id,
-        )
-        db.add(db_portfolio)
-        db.commit()
-        db.refresh(db_portfolio)
-
-        # Create Positions
-        for stock_pos in final_portfolio.positions:
-            db_pos = Position(
-                asset_name=stock_pos.name or f"Asset {stock_pos.ticker}",
-                ticker=stock_pos.ticker,
-                isin=None,  # Will be resolved or left None
-                currency=stock_pos.currency.value,
-                quantity=stock_pos.quantity,
-                unit_cost=stock_pos.average_price,
-                acquisition_date=date.today(),
-                # Using today's date or custom if available
-                portfolio_id=db_portfolio.id,
+        try:
+            # Delete any existing portfolio and positions for user (upsert behavior)
+            existing_stmt = select(Portfolio).where(
+                Portfolio.owner_id == current_user.id
             )
-            db.add(db_pos)
-        db.commit()
+            existing_portfolios = db.exec(existing_stmt).all()
+            for ep in existing_portfolios:
+                # Remove all associated positions
+                for pos in ep.positions:
+                    db.delete(pos)
+                db.delete(ep)
+            db.flush()
+
+            # Create new Portfolio
+            db_portfolio = Portfolio(
+                name=final_portfolio.broker_name,
+                description=f"Uploaded at {final_portfolio.imported_at.isoformat()}",
+                owner_id=current_user.id,
+            )
+            db.add(db_portfolio)
+            db.flush()
+            db.refresh(db_portfolio)
+
+            # Create Positions
+            for stock_pos in final_portfolio.positions:
+                db_pos = Position(
+                    asset_name=stock_pos.name or f"Asset {stock_pos.ticker}",
+                    ticker=stock_pos.ticker,
+                    isin=None,  # Will be resolved or left None
+                    currency=stock_pos.currency.value,
+                    quantity=stock_pos.quantity,
+                    unit_cost=stock_pos.average_price,
+                    acquisition_date=date.today(),
+                    portfolio_id=db_portfolio.id,
+                )
+                db.add(db_pos)
+
+            db.commit()
+            db.refresh(db_portfolio)
+        except SQLAlchemyError:
+            db.rollback()
+            logger.exception("Database error during portfolio upload")
+            raise HTTPException(
+                status_code=500, detail="Database persistence failed."
+            ) from None
+        except Exception:
+            db.rollback()
+            logger.exception("Unexpected error during portfolio upload")
+            raise HTTPException(
+                status_code=500, detail="An unexpected error occurred."
+            ) from None
         db.refresh(db_portfolio)
 
         # Value the portfolio
@@ -311,6 +331,9 @@ async def upload_portfolio(
             },
         )
 
+    except HTTPException as e:
+        # Re-raise HTTP exceptions (like our 500 DB errors) to be handled by FastAPI
+        raise e
     except Exception as e:
         logger.exception("Failed to process portfolio upload")
 

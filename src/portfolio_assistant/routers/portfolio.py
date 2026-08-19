@@ -4,6 +4,7 @@ import logging
 from typing import Annotated, Any
 
 from fastapi import APIRouter, Depends, HTTPException, status
+from sqlalchemy.exc import SQLAlchemyError
 from sqlmodel import Session, select
 
 from ..core.database import get_db_session
@@ -55,9 +56,15 @@ async def get_my_portfolio(
             "positions": positions_data,
         }
 
-    except Exception as e:
-        logger.exception("Failed to retrieve user portfolio")
+    except SQLAlchemyError:
+        logger.exception("Database error while retrieving user portfolio")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Failed to retrieve portfolio: {str(e)}",
-        ) from e
+            detail="Database persistence failed.",
+        ) from None
+    except Exception:
+        logger.exception("Unexpected error while retrieving user portfolio")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="An unexpected error occurred.",
+        ) from None
