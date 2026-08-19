@@ -35,7 +35,7 @@ jobs:
           token: ${{ steps.app-token.outputs.token }}
 
       - name: Fetch all git tags
-        run: git fetch --tags --forc
+        run: git fetch --tags --force
 
       - name: Install uv and Set up Python
         uses: astral-sh/setup-uv@v5
