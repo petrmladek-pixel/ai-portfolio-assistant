@@ -34,8 +34,9 @@ jobs:
           fetch-depth: 0
           token: ${{ steps.app-token.outputs.token }}
 
+      # --- BEZPEČNÉ STAŽENÍ TAGŮ (bez parametru --force) ---
       - name: Fetch all git tags
-        run: git fetch --tags --force
+        run: git fetch --tags
 
       - name: Install uv and Set up Python
         uses: astral-sh/setup-uv@v5
@@ -56,11 +57,12 @@ jobs:
           # cz --no-raise 21 bump handles cases where no commits require a version increment cleanly
           uv run cz --no-raise 21 bump --yes
 
+      # --- BEZPEČNÉ PUSHOVÁNÍ (pouze přes --follow-tags podle security review) ---
       - name: Push changes and tags
         run: |
           # Only push if there are actual local commits (e.g., version was bumped)
           if [ "$(git rev-parse HEAD)" != "$(git rev-parse origin/main)" ]; then
-            git push origin HEAD:main --tags
+            git push origin HEAD:main --follow-tags
           else
             echo "No version changes detected. Skipping push."
           fi
