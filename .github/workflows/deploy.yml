@@ -8,7 +8,7 @@ on:
 env:
   PROJECT_ID: ${{ secrets.GCP_PROJECT }}
   PROJECT_NUMBER: ${{ secrets.GCP_PROJECT_NUMBER }}
-  REGION: europe-west1
+  REGION: europe-west3
   GAR_REPOSITORY: ai-portfolio-assistant
   SERVICE: ai-portfolio-assistant
 
