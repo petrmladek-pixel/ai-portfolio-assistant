@@ -11,7 +11,7 @@ from .models.db_models import Portfolio, Position  # noqa: F401
 
 # Import models to ensure SQLModel knows about them for create_all
 from .models.user import User  # noqa: F401
-from .routers import auth
+from .routers import auth, portfolio
 from .routers.web import router
 
 settings = get_settings()
@@ -30,6 +30,7 @@ app = FastAPI(title=settings.app_name, lifespan=lifespan)
 
 # Include routes
 app.include_router(auth.router)
+app.include_router(portfolio.router)
 app.include_router(router)
 
 

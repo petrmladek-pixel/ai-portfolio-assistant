@@ -9,6 +9,7 @@ from typing import Annotated
 from fastapi import APIRouter, Depends, Form, HTTPException, Request, UploadFile
 from fastapi.responses import HTMLResponse
 from fastapi.templating import Jinja2Templates
+from sqlmodel import Session
 
 from portfolio_assistant.models.portfolio import Currency
 from portfolio_assistant.models.user import User
@@ -19,7 +20,9 @@ from portfolio_assistant.services.parser.fio_broker import FioBrokerPortfolioPar
 from portfolio_assistant.services.portfolio_merger import PortfolioMerger
 from portfolio_assistant.services.valuation.engine import ValuationService
 
-from ..dependencies import get_optional_current_user
+from ..core.database import get_db_session
+from ..dependencies import get_current_user, get_optional_current_user
+from ..models.db_models import Portfolio, Position
 
 logger = logging.getLogger(__name__)
 
@@ -96,19 +99,89 @@ def get_portfolio_merger() -> PortfolioMerger:
 @router.get("/", response_class=HTMLResponse)
 async def dashboard_get(
     request: Request,
+    valuation_service: Annotated[ValuationService, Depends(get_valuation_service)],
+    gemini_service: Annotated[GeminiAIService, Depends(get_gemini_service)],
+    db: Annotated[Session, Depends(get_db_session)],
     current_user: Annotated[User | None, Depends(get_optional_current_user)] = None,
 ) -> HTMLResponse:
-    """Render the dashboard with upload form."""
+    """Render the dashboard with upload form or existing portfolio analysis."""
+    valued_portfolio = None
+    total_value_formatted = None
+    chart_data_json = None
+    ai_analysis_markdown = ""
+    error = None
+
+    if current_user:
+        try:
+            from datetime import datetime
+
+            from sqlmodel import select
+
+            from portfolio_assistant.models.portfolio import (
+                ImportedPortfolio,
+                StockPosition,
+            )
+
+            # Try to load existing portfolio from DB
+            statement = select(Portfolio).where(Portfolio.owner_id == current_user.id)
+            db_portfolio = db.exec(statement).first()
+
+            if db_portfolio and db_portfolio.positions:
+                # Convert DB models to ImportedPortfolio for valuation
+                positions = []
+                for p in db_portfolio.positions:
+                    positions.append(
+                        StockPosition(
+                            ticker=p.ticker,
+                            name=p.asset_name,
+                            quantity=p.quantity,
+                            average_price=p.unit_cost,
+                            currency=Currency(p.currency),
+                        )
+                    )
+
+                imported_portfolio = ImportedPortfolio(
+                    broker_name=db_portfolio.name,
+                    imported_at=datetime.now(),  # Use current time for valuation
+                    positions=positions,
+                )
+
+                # Value the portfolio
+                valued_portfolio = await valuation_service.value_portfolio_async(
+                    imported_portfolio, target_currency=Currency.CZK
+                )
+
+                # Generate AI analysis
+                anonymized_portfolio = valued_portfolio.to_anonymized()
+                ai_analysis_markdown = await gemini_service.analyze_portfolio(
+                    anonymized_portfolio
+                )
+
+                # Prepare chart data
+                chart_labels = [pos.ticker for pos in valued_portfolio.positions]
+                chart_weights = [
+                    float(pos.weight * 100) for pos in valued_portfolio.positions
+                ]
+                chart_data = {"labels": chart_labels, "weights": chart_weights}
+                chart_data_json = json.dumps(chart_data)
+
+                # Format total value
+                total_value_formatted = format_currency(valued_portfolio.total_value)
+
+        except Exception as e:
+            logger.exception("Failed to load existing portfolio for dashboard")
+            error = f"Error loading your portfolio: {str(e)}"
+
     return templates.TemplateResponse(
         request=request,
         name="dashboard.html",
         context={
-            "valued_portfolio": None,
-            "total_value_formatted": None,
-            "chart_data_json": None,
-            "error": None,
+            "valued_portfolio": valued_portfolio,
+            "total_value_formatted": total_value_formatted,
+            "chart_data_json": chart_data_json,
+            "error": error,
             "username": current_user.email if current_user else None,
-            "ai_analysis_markdown": "",
+            "ai_analysis_markdown": ai_analysis_markdown,
         },
     )
 
@@ -121,7 +194,8 @@ async def upload_portfolio(
     fio_parser: Annotated[FioBrokerPortfolioParser, Depends(get_fio_parser)],
     portfolio_merger: Annotated[PortfolioMerger, Depends(get_portfolio_merger)],
     gemini_service: Annotated[GeminiAIService, Depends(get_gemini_service)],
-    current_user: Annotated[User | None, Depends(get_optional_current_user)] = None,
+    current_user: Annotated[User, Depends(get_current_user)],
+    db: Annotated[Session, Depends(get_db_session)],
     degiro_file: Annotated[UploadFile | None, Form()] = None,
     fio_file: Annotated[UploadFile | None, Form()] = None,
 ) -> HTMLResponse:
@@ -155,6 +229,48 @@ async def upload_portfolio(
             # This case should ideally be caught by the HTTPException above,
             # but added for completeness.
             raise ValueError("No portfolio data to process after parsing.")
+
+        # Save or update Portfolio & Positions in DB for logged-in user
+        from datetime import date
+
+        from sqlmodel import select
+
+        # Delete any existing portfolio and positions for this user (upsert behavior)
+        existing_stmt = select(Portfolio).where(Portfolio.owner_id == current_user.id)
+        existing_portfolios = db.exec(existing_stmt).all()
+        for ep in existing_portfolios:
+            # Remove all associated positions
+            for pos in ep.positions:
+                db.delete(pos)
+            db.delete(ep)
+        db.commit()
+
+        # Create new Portfolio
+        db_portfolio = Portfolio(
+            name=final_portfolio.broker_name,
+            description=f"Uploaded at {final_portfolio.imported_at.isoformat()}",
+            owner_id=current_user.id,
+        )
+        db.add(db_portfolio)
+        db.commit()
+        db.refresh(db_portfolio)
+
+        # Create Positions
+        for stock_pos in final_portfolio.positions:
+            db_pos = Position(
+                asset_name=stock_pos.name or f"Asset {stock_pos.ticker}",
+                ticker=stock_pos.ticker,
+                isin=None,  # Will be resolved or left None
+                currency=stock_pos.currency.value,
+                quantity=stock_pos.quantity,
+                unit_cost=stock_pos.average_price,
+                acquisition_date=date.today(),
+                # Using today's date or custom if available
+                portfolio_id=db_portfolio.id,
+            )
+            db.add(db_pos)
+        db.commit()
+        db.refresh(db_portfolio)
 
         # Value the portfolio
         valued_portfolio = await valuation_service.value_portfolio_async(

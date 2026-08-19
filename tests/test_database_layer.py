@@ -1,25 +1,13 @@
-import os
 from datetime import date
 from decimal import Decimal
 
-import pytest
-from sqlmodel import Session, SQLModel, select
+from sqlmodel import Session, select
 
-from portfolio_assistant.core.database import engine, get_db_session
+from portfolio_assistant.core.database import get_db_session
 from portfolio_assistant.models.db_models import Portfolio, Position
 from portfolio_assistant.models.user import User
 
-
-@pytest.fixture(name="db_session")
-def db_session_fixture():
-    # Setup - Ensure data directory exists
-    os.makedirs("./data", exist_ok=True)
-    # Setup - Use SQLModel to create tables
-    SQLModel.metadata.create_all(engine)
-    with Session(engine) as session:
-        yield session
-    # Teardown - Drop tables after test
-    SQLModel.metadata.drop_all(engine)
+# Reusing db_session from conftest.py
 
 
 def test_create_and_read_user_portfolio_positions(db_session: Session):
