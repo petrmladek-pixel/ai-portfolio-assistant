@@ -15,6 +15,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Centralized configurations in `pyproject.toml`.
 - GitHub Actions CI pipeline with automated linting, typing, and testing.
 
+## v0.5.1 (2026-08-19)
+
+### Fix
+
+- **ci**: remove --force from git fetch command and update push behavior to follow tags
+- **ci**: correct typo in git fetch command in CI workflow
+
 ## v0.5.0 (2026-08-19)
 
 ### Feat
