@@ -15,6 +15,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Centralized configurations in `pyproject.toml`.
 - GitHub Actions CI pipeline with automated linting, typing, and testing.
 
+## v0.5.0 (2026-08-19)
+
+### Feat
+
+- **portfolio**: add portfolio retrieval API and associated tests
+- **auth**: implement JWT authentication with user registration and login routes
+- **db**: implement database layer and user models using sqlmodel
+- **upload**: enforce portfolio file upload validation and improve error handling
+
+### Fix
+
+- **config**: update default secret key and improve production validation logic
+- **user**: enforce password length validation in UserCreate model
+- **portfolio**: enhance error handling for database operations in portfolio routes
+- **web**: improve error handling for dashboard and portfolio upload processes
+
 ## v0.4.0 (2026-08-12)
 
 ### Feat
