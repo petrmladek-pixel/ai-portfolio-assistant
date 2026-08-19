@@ -54,8 +54,8 @@ jobs:
 
       - name: Run Commitizen Bump
         run: |
-          # cz --no-raise 21 bump handles cases where no commits require a version increment cleanly
-          uv run cz --no-raise 21 bump --yes
+          # cz --no-raise 3,21 bump handles cases where no commits require a version increment cleanly
+          uv run cz --no-raise 3,21 bump --yes
 
       # --- BEZPEČNÉ PUSHOVÁNÍ (pouze přes --follow-tags podle security review) ---
       - name: Push changes and tags
