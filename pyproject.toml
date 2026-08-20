@@ -42,6 +42,7 @@ packages = ["src/portfolio_assistant"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
+pythonpath = ["src"]
 filterwarnings = [
     "ignore:.*_UnionGenericAlias.*:DeprecationWarning",
     "ignore:.*google.genai.*:DeprecationWarning"
