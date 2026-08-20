@@ -24,7 +24,6 @@ dependencies = [
 [dependency-groups]
 dev = [
     "codespell>=2.4.3",
-    "commitizen>=4.17.0",
     "google-genai>=2.14.0",
     "httpx2>=2.9.1",
     "mypy>=2.3.0",
@@ -85,12 +84,3 @@ module = ["tests.*", "scripts.*", "pandas.*", "yfinance.*"]
 disallow_untyped_defs = false
 disallow_incomplete_defs = false
 ignore_missing_imports = true
-
-[tool.commitizen]
-name = "cz_conventional_commits"
-tag_format = "v$version"
-version_scheme = "semver"
-version_provider = "pep621"
-update_changelog_on_bump = true
-changelog_file = "CHANGELOG.md"
-bump_message = "bump: version $current_version → $new_version [skip ci]"
