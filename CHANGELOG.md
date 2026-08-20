@@ -15,6 +15,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Centralized configurations in `pyproject.toml`.
 - GitHub Actions CI pipeline with automated linting, typing, and testing.
 
+## [0.6.1](https://github.com/petrmladek-pixel/ai-portfolio-assistant/compare/v0.6.0...v0.6.1) (2026-08-20)
+
+
+### Bug Fixes
+
+* **ci:** update deploy workflow to trigger on main branch and add release steps ([187de5d](https://github.com/petrmladek-pixel/ai-portfolio-assistant/commit/187de5d01c18082064ce55f724fa17b9f30e6b54))
+* **ci:** update deploy workflow to trigger on main branch and add release steps ([52e7d5e](https://github.com/petrmladek-pixel/ai-portfolio-assistant/commit/52e7d5ed1d1ef95e6ce0e2b3a50b55bfeb6d528c))
+
 ## v0.5.2 (2026-08-19)
 
 ### Fix
