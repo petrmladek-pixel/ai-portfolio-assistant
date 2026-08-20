@@ -32,8 +32,8 @@ ENV PYTHONPATH="/app/src"
 # Ensure standard Python optimization variables are set
 ENV PYTHONUNBUFFERED=1
 
-# Expose port 8000
-EXPOSE 8000
+# Expose port 8080 (GCP Cloud Run default)
+EXPOSE 8080
 
-# Start the production server
-CMD ["uvicorn", "portfolio_assistant.main:app", "--host", "0.0.0.0", "--port", "8000"]
+# Start the production server dynamically binding to the PORT environment variable
+CMD ["sh", "-c", "exec uvicorn portfolio_assistant.main:app --host 0.0.0.0 --port ${PORT:-8080}"]
