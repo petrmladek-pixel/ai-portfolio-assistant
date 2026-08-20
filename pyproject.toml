@@ -64,7 +64,7 @@ count = true
 quiet-level = 3
 
 [tool.uv]
-package = true
+package = false
 
 [tool.mypy]
 python_version = "3.11"
