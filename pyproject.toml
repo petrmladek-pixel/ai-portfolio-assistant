@@ -1,6 +1,6 @@
 [project]
 name = "portfolio_assistant"
-version = "0.5.2"
+version = "0.6.1"
 description = "A simple portfolio assistant built with FastAPI"
 readme = "README.md"
 requires-python = ">=3.11"
@@ -42,6 +42,7 @@ packages = ["src/portfolio_assistant"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
+pythonpath = ["src"]
 filterwarnings = [
     "ignore:.*_UnionGenericAlias.*:DeprecationWarning",
     "ignore:.*google.genai.*:DeprecationWarning"
@@ -64,7 +65,7 @@ count = true
 quiet-level = 3
 
 [tool.uv]
-package = true
+package = false
 
 [tool.mypy]
 python_version = "3.11"

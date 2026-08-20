@@ -1245,8 +1245,8 @@ wheels = [
 
 [[package]]
 name = "portfolio-assistant"
-version = "0.5.2"
-source = { editable = "." }
+version = "0.6.1"
+source = { virtual = "." }
 dependencies = [
     { name = "bcrypt" },
     { name = "fastapi" },
