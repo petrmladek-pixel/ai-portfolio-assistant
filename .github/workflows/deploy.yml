@@ -1,9 +1,10 @@
-name: Build and Deploy to Cloud Run
+name: Release and Deploy to Cloud Run
 
 on:
   push:
-    tags:
-      - 'v*'
+    branches:
+      - main
+  workflow_dispatch: # Umožní ruční spuštění z GitHub UI
 
 env:
   PROJECT_ID: ${{ secrets.GCP_PROJECT }}
@@ -12,37 +13,71 @@ env:
   GAR_REPOSITORY: ai-portfolio-assistant
   SERVICE: ai-portfolio-assistant
 
+permissions:
+  contents: write
+  pull-requests: write
+  id-token: write
+
 jobs:
+  release-please:
+    name: Run Release Please
+    runs-on: ubuntu-latest
+    outputs:
+      release_created: ${{ steps.release.outputs.release_created }}
+      tag_name: ${{ steps.release.outputs.tag_name }}
+    steps:
+      - name: Run Google Release Please
+        id: release
+        uses: googleapis/release-please-action@v4
+        with:
+          release-type: python
+
   deploy:
     name: Build and Deploy
     runs-on: ubuntu-latest
-
-    permissions:
-      contents: read
-      id-token: write
-
+    # Spustí se buď pokud Release Please úspěšně vytvořil novou verzi,
+    # nebo pokud jsme pipeline spustili ručně přes workflow_dispatch.
+    needs: release-please
+    if: >-
+      needs.release-please.outputs.release_created == 'true' ||
+      github.event_name == 'workflow_dispatch'
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      # 1. Fail-fast validation of required GitHub secrets
+      # 1. Nastavení verze (značky) pro Docker image
+      - name: Set Release Tag
+        id: vars
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            # Při ručním spuštění použijeme SHA commitu jako fallback značku
+            echo "tag=manual-${{ github.sha }}" >> $GITHUB_OUTPUT
+          else
+            # Při automatickém vydání použijeme vygenerovaný tag (např. v0.6.0)
+            echo "tag=${{ needs.release-please.outputs.tag_name }}" >> $GITHUB_OUTPUT
+          fi
+
+      # 2. Fail-fast validation of required GitHub secrets
       - name: Validate GCP Secrets
         run: |
-          if [ -z "${{ secrets.GCP_PROJECT }}" ] || [ -z "${{ secrets.GCP_PROJECT_NUMBER }}" ]; then
-            echo "::error::GCP_PROJECT or GCP_PROJECT_NUMBER secret is missing. Please configure them in GitHub repository secrets."
+          if [ -z "${{ secrets.GCP_PROJECT }}" ] || \
+             [ -z "${{ secrets.GCP_PROJECT_NUMBER }}" ]; then
+            echo "::error::GCP_PROJECT or GCP_PROJECT_NUMBER is missing."
             exit 1
           fi
 
-      # 2. Keyless login to GCP via Workload Identity Federation
+      # 3. Keyless login to GCP via Workload Identity Federation
       - name: Google Auth
         id: auth
         uses: google-github-actions/auth@v2
         with:
           token_format: 'access_token'
-          workload_identity_provider: 'projects/${{ env.PROJECT_NUMBER }}/locations/global/workloadIdentityPools/github-pool/providers/github-provider'
-          service_account: 'github-deployer@${{ env.PROJECT_ID }}.iam.gserviceaccount.com'
+          workload_identity_provider: >-
+            projects/${{ env.PROJECT_NUMBER }}/locations/global/workloadIdentityPools/github-pool/providers/github-provider
+          service_account: >-
+            github-deployer@${{ env.PROJECT_ID }}.iam.gserviceaccount.com
 
-      # 3. Authenticate Docker with Artifact Registry
+      # 4. Authenticate Docker with Artifact Registry
       - name: Docker Auth
         uses: docker/login-action@v3
         with:
@@ -50,30 +85,32 @@ jobs:
           username: oauth2accesstoken
           password: ${{ steps.auth.outputs.access_token }}
 
-      # 4. Set up Docker Buildx for advanced caching capabilities
+      # 5. Set up Docker Buildx for advanced caching capabilities
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
 
-      # 5. Build and push the container image with multi-tagging and GHA caching
+      # 6. Build and push the container image with multi-tagging and GHA caching
       - name: Build and Push Container
         uses: docker/build-push-action@v6
         with:
           context: .
           push: true
           tags: |
-            ${{ env.REGION }}-docker.pkg.dev/${{ env.PROJECT_ID }}/${{ env.GAR_REPOSITORY }}/${{ env.SERVICE }}:${{ github.ref_name }}
+            ${{ env.REGION }}-docker.pkg.dev/${{ env.PROJECT_ID }}/${{ env.GAR_REPOSITORY }}/${{ env.SERVICE }}:${{ steps.vars.outputs.tag }}
             ${{ env.REGION }}-docker.pkg.dev/${{ env.PROJECT_ID }}/${{ env.GAR_REPOSITORY }}/${{ env.SERVICE }}:latest
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
-      # 6. Deploy the newly pushed version image to Google Cloud Run
+      # 7. Deploy the newly pushed version image to Google Cloud Run
       - name: Deploy to Cloud Run
         id: deploy
         uses: google-github-actions/deploy-cloudrun@v2
         with:
           service: ${{ env.SERVICE }}
           region: ${{ env.REGION }}
-          image: ${{ env.REGION }}-docker.pkg.dev/${{ env.PROJECT_ID }}/${{ env.GAR_REPOSITORY }}/${{ env.SERVICE }}:${{ github.ref_name }}
+          image: >-
+            ${{ env.REGION }}-docker.pkg.dev/${{ env.PROJECT_ID }}/${{ env.GAR_REPOSITORY }}/${{ env.SERVICE }}:${{ steps.vars.outputs.tag }}
 
       - name: Show Output URL
-        run: echo "Application successfully deployed to ${{ steps.deploy.outputs.url }}"
+        run: |
+          echo "Application successfully deployed to ${{ steps.deploy.outputs.url }}"
