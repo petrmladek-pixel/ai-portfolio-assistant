@@ -21,13 +21,17 @@ def test_create_and_read_user_portfolio_positions(db_session: Session):
     assert user.email == "test@example.com"
 
     # 2. Create a Portfolio for the user
-    portfolio = Portfolio(name="My Retirement Portfolio", owner_id=user.id)
+    portfolio = Portfolio(
+        name="My Retirement Portfolio",
+        broker="Fio",
+        user_id=user.id,
+    )
     db_session.add(portfolio)
     db_session.commit()
     db_session.refresh(portfolio)
 
     assert portfolio.id is not None
-    assert portfolio.owner_id == user.id
+    assert portfolio.user_id == user.id
 
     # 3. Create Positions in the portfolio
     pos1 = Position(

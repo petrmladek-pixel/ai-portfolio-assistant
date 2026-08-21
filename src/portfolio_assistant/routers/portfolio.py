@@ -27,7 +27,7 @@ async def get_my_portfolio(
     """
     try:
         # Find the portfolio for the logged-in user
-        statement = select(Portfolio).where(Portfolio.owner_id == current_user.id)
+        statement = select(Portfolio).where(Portfolio.user_id == current_user.id)
         portfolio = session.exec(statement).first()
 
         if not portfolio:

@@ -124,7 +124,7 @@ async def dashboard_get(
             )
 
             # Try to load existing portfolio from DB
-            statement = select(Portfolio).where(Portfolio.owner_id == current_user.id)
+            statement = select(Portfolio).where(Portfolio.user_id == current_user.id)
             db_portfolio = db.exec(statement).first()
 
             if db_portfolio and db_portfolio.positions:
@@ -242,7 +242,7 @@ async def upload_portfolio(
         try:
             # Delete any existing portfolio and positions for user (upsert behavior)
             existing_stmt = select(Portfolio).where(
-                Portfolio.owner_id == current_user.id
+                Portfolio.user_id == current_user.id
             )
             existing_portfolios = db.exec(existing_stmt).all()
             for ep in existing_portfolios:
@@ -255,8 +255,9 @@ async def upload_portfolio(
             # Create new Portfolio
             db_portfolio = Portfolio(
                 name=final_portfolio.broker_name,
+                broker=final_portfolio.broker_name,
                 description=f"Uploaded at {final_portfolio.imported_at.isoformat()}",
-                owner_id=current_user.id,
+                user_id=current_user.id,
             )
             db.add(db_portfolio)
             db.flush()

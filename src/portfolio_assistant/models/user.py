@@ -18,7 +18,7 @@ class User(UserBase, table=True):
     id: int | None = Field(default=None, primary_key=True)
     hashed_password: str
 
-    portfolios: list["Portfolio"] = Relationship(back_populates="owner")
+    portfolios: list["Portfolio"] = Relationship(back_populates="user")
 
 
 class UserCreate(UserBase):
