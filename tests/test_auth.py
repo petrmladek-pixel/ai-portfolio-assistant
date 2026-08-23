@@ -4,7 +4,7 @@ from sqlmodel import Session, SQLModel, create_engine, select
 from sqlmodel.pool import StaticPool
 
 from portfolio_assistant.core.database import get_db_session
-from portfolio_assistant.core.security import hash_password
+from portfolio_assistant.core.security import create_access_token, hash_password
 from portfolio_assistant.main import app
 from portfolio_assistant.models.db_models import Portfolio
 from portfolio_assistant.models.user import User
@@ -168,3 +168,13 @@ def test_get_current_user_dependency(client: TestClient):
     response = client.get("/api/test-protected")
     assert response.status_code == 200
     assert response.json()["email"] == "test@example.com"
+
+
+def test_dashboard_allows_a_stale_session_cookie(client: TestClient):
+    token = create_access_token(data={"sub": "missing@example.com"})
+    client.cookies.set("session_token", token)
+
+    response = client.get("/")
+
+    assert response.status_code == 200
+    assert "User not found" not in response.text

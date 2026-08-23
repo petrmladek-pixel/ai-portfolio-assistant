@@ -2,10 +2,11 @@ from collections.abc import Generator
 
 from sqlmodel import Session, create_engine
 
-SQLMODEL_DATABASE_URL = "sqlite:///./data/portfolio_assistant.db"
+from portfolio_assistant.config import get_settings
 
+SQLMODEL_DATABASE_URL = get_settings().database_url
 
-engine = create_engine(SQLMODEL_DATABASE_URL, echo=True)
+engine = create_engine(SQLMODEL_DATABASE_URL)
 
 
 def get_db_session() -> Generator[Session, None, None]:

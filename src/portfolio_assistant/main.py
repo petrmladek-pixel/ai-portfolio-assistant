@@ -1,3 +1,4 @@
+import asyncio
 import os
 from collections.abc import AsyncGenerator
 from contextlib import asynccontextmanager
@@ -5,6 +6,7 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI
 
 from .config import get_settings
+from .core.migrations import run_db_migrations
 from .routers import auth, portfolio, web_dashboard, web_upload
 from .routers.web import router
 
@@ -13,8 +15,9 @@ settings = get_settings()
 
 @asynccontextmanager
 async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
-    # Ensure data directory exists
-    os.makedirs("./data", exist_ok=True)
+    """Prepare local storage before serving requests."""
+    os.makedirs(settings.data_dir, exist_ok=True)
+    await asyncio.to_thread(run_db_migrations)
     yield
 
 

@@ -55,7 +55,12 @@ async def get_optional_current_user(
     if not token:
         return None
 
-    return await security_get_user(request, db)
+    try:
+        return await security_get_user(request, db)
+    except HTTPException as error:
+        if error.status_code == status.HTTP_401_UNAUTHORIZED:
+            return None
+        raise
 
 
 def get_persisted_user_id(user: User) -> int:
