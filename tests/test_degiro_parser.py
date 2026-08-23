@@ -59,23 +59,6 @@ async def test_degiro_parser_cz(degiro_parser, mock_degiro_csv_cz):
     assert pos_allianz.currency == Currency.EUR
 
 
-@pytest.mark.skip(reason="English DEGIRO format not officially supported")
-@pytest.mark.asyncio
-async def test_degiro_parser_comma_delimiter(
-    degiro_parser, mock_degiro_csv_comma_delimiter
-):
-    portfolio = await degiro_parser.parse(mock_degiro_csv_comma_delimiter)
-    assert portfolio.broker_name == "DEGIRO"
-    assert len(portfolio.positions) == 2
-
-    pos1 = portfolio.positions[0]
-    assert pos1.ticker == "AAPL"
-    assert pos1.name == "Apple Inc."
-    assert pos1.quantity == Decimal("10")
-    assert pos1.average_price == Decimal("150.00")
-    assert pos1.currency == Currency.USD
-
-
 @pytest.mark.asyncio
 async def test_degiro_parser_with_bom(degiro_parser, mock_degiro_csv_with_bom):
     portfolio = await degiro_parser.parse(mock_degiro_csv_with_bom)
@@ -89,14 +72,3 @@ async def test_degiro_parser_with_bom(degiro_parser, mock_degiro_csv_with_bom):
     assert pos.quantity == Decimal("1")
     assert pos.average_price == Decimal("100.00")
     assert pos.currency == Currency.USD
-
-
-@pytest.mark.skip(reason="English DEGIRO format not officially supported")
-@pytest.mark.asyncio
-async def test_degiro_parser_isin_and_symbol(
-    degiro_parser, mock_degiro_csv_isin_and_symbol
-):
-    portfolio = await degiro_parser.parse(mock_degiro_csv_isin_and_symbol)
-    assert portfolio.broker_name == "DEGIRO"
-    assert len(portfolio.positions) == 1
-    assert portfolio.positions[0].ticker == "AAPL"
