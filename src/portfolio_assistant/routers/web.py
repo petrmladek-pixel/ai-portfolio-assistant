@@ -7,17 +7,21 @@ from pathlib import Path
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, Form, HTTPException, Request, UploadFile
-from fastapi.responses import HTMLResponse
+from fastapi.responses import HTMLResponse, RedirectResponse
 from fastapi.templating import Jinja2Templates
 from sqlalchemy.exc import SQLAlchemyError
-from sqlmodel import Session
+from sqlmodel import Session, select
 
 from portfolio_assistant.models.portfolio import Currency
 from portfolio_assistant.models.user import User
 from portfolio_assistant.services.ai.gemini import GeminiAIService
-from portfolio_assistant.services.market_data.yfinance import YFinanceMarketDataService
+from portfolio_assistant.services.market_data.yfinance import (
+    YFinanceMarketDataService,
+)
 from portfolio_assistant.services.parser.degiro import DegiroPortfolioParser
-from portfolio_assistant.services.parser.fio_broker import FioBrokerPortfolioParser
+from portfolio_assistant.services.parser.fio_broker import (
+    FioBrokerPortfolioParser,
+)
 from portfolio_assistant.services.portfolio_merger import PortfolioMerger
 from portfolio_assistant.services.valuation.engine import ValuationService
 
@@ -62,6 +66,28 @@ templates.env.filters["format_currency"] = format_currency
 router = APIRouter(prefix="", tags=["web"])
 
 
+@router.post("/portfolios")
+async def create_portfolio_web(
+    name: Annotated[str, Form()],
+    broker: Annotated[str, Form()],
+    current_user: Annotated[User, Depends(get_current_user)],
+    db: Annotated[Session, Depends(get_db_session)],
+) -> RedirectResponse:
+    """Create a new portfolio from the web form and redirect back to dashboard."""
+    try:
+        db_portfolio = Portfolio(
+            name=name.strip(),
+            broker=broker.strip(),
+            user_id=current_user.id,
+        )
+        db.add(db_portfolio)
+        db.commit()
+        return RedirectResponse("/", status_code=303)
+    except Exception as e:
+        logger.exception("Failed to create portfolio via web form")
+        raise HTTPException(status_code=500, detail="Failed to create portfolio") from e
+
+
 # Initialize services using FastAPI dependency injection
 def get_market_data_service() -> YFinanceMarketDataService:
     """FastAPI dependency: Get market data service instance."""
@@ -102,7 +128,9 @@ async def dashboard_get(
     request: Request,
     valuation_service: Annotated[ValuationService, Depends(get_valuation_service)],
     gemini_service: Annotated[GeminiAIService, Depends(get_gemini_service)],
+    portfolio_merger: Annotated[PortfolioMerger, Depends(get_portfolio_merger)],
     db: Annotated[Session, Depends(get_db_session)],
+    portfolio_id: int | None = None,
     current_user: Annotated[User | None, Depends(get_optional_current_user)] = None,
 ) -> HTMLResponse:
     """Render the dashboard with upload form or existing portfolio analysis."""
@@ -111,45 +139,71 @@ async def dashboard_get(
     chart_data_json = None
     ai_analysis_markdown = ""
     error = None
+    portfolios: list[Portfolio] = []
 
     if current_user:
         try:
             from datetime import datetime
-
-            from sqlmodel import select
 
             from portfolio_assistant.models.portfolio import (
                 ImportedPortfolio,
                 StockPosition,
             )
 
-            # Try to load existing portfolio from DB
-            statement = select(Portfolio).where(Portfolio.user_id == current_user.id)
-            db_portfolio = db.exec(statement).first()
+            # Fetch all user portfolios
+            statement_all = select(Portfolio).where(
+                Portfolio.user_id == current_user.id
+            )
+            portfolios = list(db.exec(statement_all).all())
 
-            if db_portfolio and db_portfolio.positions:
-                # Convert DB models to ImportedPortfolio for valuation
-                positions = []
-                for p in db_portfolio.positions:
-                    positions.append(
-                        StockPosition(
-                            ticker=p.ticker,
-                            name=p.asset_name,
-                            quantity=p.quantity,
-                            average_price=p.unit_cost,
-                            currency=Currency(p.currency),
+            # Filter logic
+            db_portfolios_to_process = []
+            if portfolio_id is not None:
+                statement = select(Portfolio).where(
+                    Portfolio.id == portfolio_id,
+                    Portfolio.user_id == current_user.id,
+                )
+                p_selected = db.exec(statement).first()
+                if p_selected:
+                    db_portfolios_to_process = [p_selected]
+            else:
+                db_portfolios_to_process = portfolios
+
+            # Gather positions
+            imported_portfolios = []
+            for db_p in db_portfolios_to_process:
+                if db_p.positions:
+                    positions = []
+                    for p in db_p.positions:
+                        positions.append(
+                            StockPosition(
+                                ticker=p.ticker,
+                                name=p.asset_name,
+                                quantity=p.quantity,
+                                average_price=p.unit_cost,
+                                currency=Currency(p.currency),
+                            )
+                        )
+                    imported_portfolios.append(
+                        ImportedPortfolio(
+                            broker_name=db_p.name,
+                            imported_at=datetime.now(),
+                            positions=positions,
                         )
                     )
 
-                imported_portfolio = ImportedPortfolio(
-                    broker_name=db_portfolio.name,
-                    imported_at=datetime.now(),  # Use current time for valuation
-                    positions=positions,
-                )
+            if imported_portfolios:
+                # Merge if multiple
+                if len(imported_portfolios) == 1:
+                    final_portfolio = imported_portfolios[0]
+                else:
+                    final_portfolio = portfolio_merger.merge_portfolios(
+                        imported_portfolios
+                    )
 
                 # Value the portfolio
                 valued_portfolio = await valuation_service.value_portfolio_async(
-                    imported_portfolio, target_currency=Currency.CZK
+                    final_portfolio, target_currency=Currency.CZK
                 )
 
                 # Generate AI analysis
@@ -186,6 +240,8 @@ async def dashboard_get(
             "error": error,
             "username": current_user.email if current_user else None,
             "ai_analysis_markdown": ai_analysis_markdown,
+            "portfolios": portfolios,
+            "selected_portfolio_id": portfolio_id,
         },
     )
 
@@ -200,12 +256,18 @@ async def upload_portfolio(
     gemini_service: Annotated[GeminiAIService, Depends(get_gemini_service)],
     current_user: Annotated[User, Depends(get_current_user)],
     db: Annotated[Session, Depends(get_db_session)],
+    portfolio_id: Annotated[int, Form()],
     degiro_file: Annotated[UploadFile | None, Form()] = None,
     fio_file: Annotated[UploadFile | None, Form()] = None,
 ) -> HTMLResponse:
     """Handle portfolio CSV upload and display valuation results."""
     try:
         imported_portfolios = []
+        portfolios: list[Portfolio] = []
+
+        # Fetch all user portfolios for rendering context
+        statement_all = select(Portfolio).where(Portfolio.user_id == current_user.id)
+        portfolios = list(db.exec(statement_all).all())
 
         if not degiro_file and not fio_file:
             raise HTTPException(
@@ -230,45 +292,32 @@ async def upload_portfolio(
         elif len(imported_portfolios) > 1:
             final_portfolio = portfolio_merger.merge_portfolios(imported_portfolios)
         else:
-            # This case should ideally be caught by the HTTPException above,
-            # but added for completeness.
             raise ValueError("No portfolio data to process after parsing.")
 
-        # Save or update Portfolio & Positions in DB for logged-in user
+        # Save or update Positions in DB for the specified portfolio
         from datetime import date
 
-        from sqlmodel import select
-
         try:
-            # Delete any existing portfolio and positions for user (upsert behavior)
-            existing_stmt = select(Portfolio).where(
-                Portfolio.user_id == current_user.id
+            # Verify the portfolio belongs to user
+            verify_stmt = select(Portfolio).where(
+                Portfolio.id == portfolio_id,
+                Portfolio.user_id == current_user.id,
             )
-            existing_portfolios = db.exec(existing_stmt).all()
-            for ep in existing_portfolios:
-                # Remove all associated positions
-                for pos in ep.positions:
-                    db.delete(pos)
-                db.delete(ep)
-            db.flush()
+            db_portfolio = db.exec(verify_stmt).first()
+            if not db_portfolio:
+                raise HTTPException(status_code=404, detail="Portfolio not found.")
 
-            # Create new Portfolio
-            db_portfolio = Portfolio(
-                name=final_portfolio.broker_name,
-                broker=final_portfolio.broker_name,
-                description=f"Uploaded at {final_portfolio.imported_at.isoformat()}",
-                user_id=current_user.id,
-            )
-            db.add(db_portfolio)
+            # Clear old positions for this portfolio only
+            for pos in db_portfolio.positions:
+                db.delete(pos)
             db.flush()
-            db.refresh(db_portfolio)
 
             # Create Positions
             for stock_pos in final_portfolio.positions:
                 db_pos = Position(
                     asset_name=stock_pos.name or f"Asset {stock_pos.ticker}",
                     ticker=stock_pos.ticker,
-                    isin=None,  # Will be resolved or left None
+                    isin=None,
                     currency=stock_pos.currency.value,
                     quantity=stock_pos.quantity,
                     unit_cost=stock_pos.average_price,
@@ -285,13 +334,14 @@ async def upload_portfolio(
             raise HTTPException(
                 status_code=500, detail="Database persistence failed."
             ) from None
-        except Exception:
+        except Exception as e:
             db.rollback()
+            if isinstance(e, HTTPException):
+                raise e
             logger.exception("Unexpected error during portfolio upload")
             raise HTTPException(
                 status_code=500, detail="An unexpected error occurred."
             ) from None
-        db.refresh(db_portfolio)
 
         # Value the portfolio
         valued_portfolio = await valuation_service.value_portfolio_async(
@@ -329,11 +379,12 @@ async def upload_portfolio(
                 "error": None,
                 "username": current_user.email if current_user else None,
                 "ai_analysis_markdown": ai_analysis_markdown,
+                "portfolios": portfolios,
+                "selected_portfolio_id": portfolio_id,
             },
         )
 
     except HTTPException as e:
-        # Re-raise HTTP exceptions (like our 500 DB errors) to be handled by FastAPI
         raise e
     except Exception as e:
         logger.exception("Failed to process portfolio upload")
@@ -347,5 +398,7 @@ async def upload_portfolio(
                 "chart_data_json": None,
                 "error": f"Error processing portfolio: {str(e)}",
                 "username": current_user.email if current_user else None,
+                "portfolios": portfolios,
+                "selected_portfolio_id": portfolio_id,
             },
         )

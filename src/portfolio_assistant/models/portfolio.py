@@ -149,6 +149,24 @@ class StockPosition(BaseModel):
         return cleaned
 
 
+class PortfolioCreate(BaseModel):
+    """Represents the data required to create a new portfolio."""
+
+    name: str = Field(..., min_length=1, max_length=100)
+    broker: str = Field(..., min_length=1, max_length=50)
+
+    @field_validator("name", "broker", mode="before")
+    @classmethod
+    def clean_string_fields(cls, v: str) -> str:
+        """Strips whitespace from string fields."""
+        if not isinstance(v, str):
+            raise ValueError("Field must be a string")
+        cleaned = v.strip()
+        if not cleaned:
+            raise ValueError("Field cannot be empty or only whitespace")
+        return cleaned
+
+
 class ImportedPortfolio(BaseModel):
     """Represents an imported collection of stock positions from a broker.
 
