@@ -23,3 +23,11 @@ class PortfolioNotFoundError(DomainException):
 
 class PersistenceError(DomainException):
     """Raised when a database operation cannot be completed."""
+
+
+class InvalidImportTypeError(DomainException):
+    """Raised when a portfolio import type is not supported."""
+
+
+class PortfolioImportError(DomainException):
+    """Raised when a broker portfolio file cannot be parsed."""

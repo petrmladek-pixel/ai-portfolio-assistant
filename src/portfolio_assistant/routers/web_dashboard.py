@@ -10,6 +10,7 @@ from fastapi.responses import HTMLResponse
 from sqlalchemy.exc import SQLAlchemyError
 from sqlmodel import Session
 
+from portfolio_assistant.core.exceptions import PersistenceError
 from portfolio_assistant.crud.portfolio import (
     get_portfolio_for_user,
     get_portfolios_for_user,
@@ -26,6 +27,7 @@ from portfolio_assistant.models.portfolio import (
 from portfolio_assistant.models.user import User
 from portfolio_assistant.services.ai.gemini import GeminiAIService
 from portfolio_assistant.services.portfolio_merger import PortfolioMerger
+from portfolio_assistant.services.portfolio_service import PortfolioService
 from portfolio_assistant.services.valuation.engine import ValuationService
 
 from ..core.database import get_db_session
@@ -33,6 +35,7 @@ from .web import (
     format_currency,
     get_gemini_service,
     get_portfolio_merger,
+    get_portfolio_service,
     get_valuation_service,
     templates,
 )
@@ -47,6 +50,7 @@ async def dashboard_get(
     valuation_service: Annotated[ValuationService, Depends(get_valuation_service)],
     gemini_service: Annotated[GeminiAIService, Depends(get_gemini_service)],
     portfolio_merger: Annotated[PortfolioMerger, Depends(get_portfolio_merger)],
+    portfolio_service: Annotated[PortfolioService, Depends(get_portfolio_service)],
     session: Annotated[Session, Depends(get_db_session)],
     portfolio_id: int | None = None,
     current_user: Annotated[User | None, Depends(get_optional_current_user)] = None,
@@ -56,7 +60,10 @@ async def dashboard_get(
     if current_user is not None:
         user_id = get_persisted_user_id(current_user)
         try:
+            portfolio_service.ensure_default_portfolio(session, user_id)
             portfolios = get_portfolios_for_user(session, user_id)
+            if portfolio_id is None and portfolios:
+                context["selected_portfolio_id"] = portfolios[0].id
             context["portfolios"] = portfolios
             selected = _select_portfolios(session, user_id, portfolio_id, portfolios)
             imported = _to_imported_portfolios(selected)
@@ -69,7 +76,7 @@ async def dashboard_get(
                 context[
                     "ai_analysis_markdown"
                 ] = await gemini_service.analyze_portfolio(valued.to_anonymized())
-        except SQLAlchemyError:
+        except (PersistenceError, SQLAlchemyError):
             logger.exception("Database error while loading dashboard")
             context["error"] = "Database persistence failed."
         except Exception:

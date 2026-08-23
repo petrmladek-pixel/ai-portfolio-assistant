@@ -1,10 +1,13 @@
 import pytest
 from fastapi.testclient import TestClient
-from sqlmodel import Session, SQLModel, create_engine
+from sqlmodel import Session, SQLModel, create_engine, select
 from sqlmodel.pool import StaticPool
 
 from portfolio_assistant.core.database import get_db_session
+from portfolio_assistant.core.security import hash_password
 from portfolio_assistant.main import app
+from portfolio_assistant.models.db_models import Portfolio
+from portfolio_assistant.models.user import User
 
 # Setup in-memory SQLite for testing
 engine = create_engine(
@@ -33,7 +36,7 @@ def client_fixture(session: Session):
     app.dependency_overrides.clear()
 
 
-def test_register_user(client: TestClient):
+def test_register_user(client: TestClient, session: Session):
     response = client.post(
         "/api/auth/register",
         json={
@@ -48,6 +51,33 @@ def test_register_user(client: TestClient):
     assert data["full_name"] == "Test User"
     assert "id" in data
     assert "password" not in data
+    portfolio = session.exec(
+        select(Portfolio).where(Portfolio.user_id == data["id"])
+    ).one()
+    assert portfolio.name == "Default Portfolio"
+    assert portfolio.broker == "Default"
+
+
+def test_login_provisions_default_portfolio_for_legacy_user(
+    client: TestClient, session: Session
+):
+    user = User(
+        email="legacy@example.com",
+        hashed_password=hash_password("password"),
+    )
+    session.add(user)
+    session.commit()
+
+    response = client.post(
+        "/api/auth/login",
+        json={"email": "legacy@example.com", "password": "password"},
+    )
+
+    assert response.status_code == 200
+    portfolio = session.exec(
+        select(Portfolio).where(Portfolio.user_id == user.id)
+    ).one()
+    assert portfolio.name == "Default Portfolio"
 
 
 def test_register_duplicate_user(client: TestClient):

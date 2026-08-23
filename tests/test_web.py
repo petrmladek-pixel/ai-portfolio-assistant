@@ -192,10 +192,8 @@ def test_post_upload_only_degiro_csv(test_db_session: Session):
     degiro_csv_content = """Product,Symbol/ISIN,Quantity,Break-even Price,Currency\n"
         "Apple Inc.,AAPL,10,150.50,USD\nMicrosoft Corp.,MSFT,5,300.25,USD"""
 
-    files: dict[str, Any] = {
-        "degiro_file": ("degiro.csv", degiro_csv_content, "text/csv")
-    }
-    data = {"portfolio_id": str(portfolio.id)}
+    files: dict[str, Any] = {"file": ("degiro.csv", degiro_csv_content, "text/csv")}
+    data = {"portfolio_id": str(portfolio.id), "import_type": "degiro"}
 
     app.dependency_overrides[get_current_user] = lambda: user
 
@@ -244,8 +242,8 @@ def test_post_upload_only_fio_csv(test_db_session: Session):
         "N\xc3\xa1kup,2023-01-01,Apple Inc.,US0378331005,10,150.50,USD\n"
         "N\xc3\xa1kup,2023-01-02,Microsoft Corp.,US5949181045,5,300.25,USD"""
 
-    files: dict[str, Any] = {"fio_file": ("fio.csv", fio_csv_content, "text/csv")}
-    data = {"portfolio_id": str(portfolio.id)}
+    files: dict[str, Any] = {"file": ("fio.csv", fio_csv_content, "text/csv")}
+    data = {"portfolio_id": str(portfolio.id), "import_type": "fio"}
 
     app.dependency_overrides[get_current_user] = lambda: user
 
@@ -279,13 +277,13 @@ def test_post_upload_no_files_raises_400(test_db_session: Session):
     test_db_session.commit()
 
     files: dict[str, Any] = {}
-    data = {"portfolio_id": str(portfolio.id)}
+    data = {"portfolio_id": str(portfolio.id), "import_type": "degiro"}
 
     app.dependency_overrides[get_current_user] = lambda: user
 
     try:
         response = client.post("/upload", files=files, data=data)
-        assert response.status_code == 400
+        assert response.status_code == 422
     finally:
         _teardown_mock_services()
 
@@ -301,8 +299,8 @@ def test_post_upload_invalid_csv(test_db_session: Session):
     test_db_session.commit()
 
     csv_content = """Invalid,Header,Format\nThis,is,not,a,valid,CSV"""
-    files: dict[str, Any] = {"degiro_file": ("invalid.csv", csv_content, "text/csv")}
-    data = {"portfolio_id": str(portfolio.id)}
+    files: dict[str, Any] = {"file": ("invalid.csv", csv_content, "text/csv")}
+    data = {"portfolio_id": str(portfolio.id), "import_type": "degiro"}
 
     app.dependency_overrides[get_current_user] = lambda: user
     mock_parser_service = MagicMock()
