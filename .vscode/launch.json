@@ -5,10 +5,10 @@
             "name": "Python: FastAPI (F5)",
             "type": "debugpy",
             "request": "launch",
+            "python": "${workspaceFolder}\\.venv\\Scripts\\python.exe",
             "module": "uvicorn",
             "args": [
                 "portfolio_assistant.main:app",
-                "--reload",
                 "--port",
                 "8000",
                 "--app-dir",

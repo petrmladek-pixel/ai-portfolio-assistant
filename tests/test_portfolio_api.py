@@ -38,7 +38,7 @@ def test_get_portfolio_me_with_data(db_session: Session):
     db_session.refresh(user)
 
     # Create test portfolio
-    portfolio = Portfolio(name="Fio", owner_id=user.id)
+    portfolio = Portfolio(name="Fio", broker="Fio", user_id=user.id)
     db_session.add(portfolio)
     db_session.commit()
     db_session.refresh(portfolio)

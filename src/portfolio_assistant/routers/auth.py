@@ -3,15 +3,26 @@
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, HTTPException, Response, status
-from sqlmodel import Session, select
+from sqlmodel import Session
 
 from ..config import get_settings
 from ..core.database import get_db_session
-from ..core.security import create_access_token, hash_password, verify_password
+from ..core.exceptions import (
+    InactiveUserError,
+    InvalidCredentialsError,
+    UserAlreadyExistsError,
+)
+from ..core.security import create_access_token
 from ..models.user import User, UserCreate, UserPublic
+from ..services.user_service import UserService
 
 settings = get_settings()
 router = APIRouter(prefix="/api/auth", tags=["authentication"])
+
+
+def get_user_service() -> UserService:
+    """Provide the user workflow service."""
+    return UserService()
 
 
 @router.post(
@@ -20,30 +31,16 @@ router = APIRouter(prefix="/api/auth", tags=["authentication"])
 def register(
     user_in: UserCreate,
     session: Annotated[Session, Depends(get_db_session)],
+    user_service: Annotated[UserService, Depends(get_user_service)],
 ) -> User:
     """Register a new user."""
-    # Check if user already exists
-    statement = select(User).where(User.email == user_in.email)
-    existing_user = session.exec(statement).first()
-    if existing_user:
+    try:
+        return user_service.register(session, user_in)
+    except UserAlreadyExistsError:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="User with this email already exists",
-        )
-
-    # Hash password and create user
-    hashed_password = hash_password(user_in.password)
-    user = User(
-        email=user_in.email,
-        hashed_password=hashed_password,
-        full_name=user_in.full_name,
-        is_active=user_in.is_active,
-        is_superuser=user_in.is_superuser,
-    )
-    session.add(user)
-    session.commit()
-    session.refresh(user)
-    return user
+        ) from None
 
 
 @router.post("/login")
@@ -52,22 +49,21 @@ def login(
     # would use OAuth2PasswordRequestForm
     session: Annotated[Session, Depends(get_db_session)],
     response: Response,
+    user_service: Annotated[UserService, Depends(get_user_service)],
 ) -> dict[str, str]:
     """Log in a user and set session cookie."""
-    statement = select(User).where(User.email == user_in.email)
-    user = session.exec(statement).first()
-
-    if not user or not verify_password(user_in.password, user.hashed_password):
+    try:
+        user = user_service.authenticate(session, user_in)
+    except InvalidCredentialsError:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Incorrect email or password",
-        )
-
-    if not user.is_active:
+        ) from None
+    except InactiveUserError:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="User is inactive",
-        )
+        ) from None
 
     # Create access token
     access_token = create_access_token(data={"sub": user.email})

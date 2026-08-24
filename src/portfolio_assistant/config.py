@@ -28,10 +28,11 @@ class Settings(BaseSettings):
 
     # Database and keys
     database_url: str = Field(
-        default="sqlite:///./app.db", description="Database connection URI"
+        default="sqlite:///./data/portfolio_assistant.db",
+        description="Database connection URI",
     )
     data_dir: str = Field(
-        default="src/portfolio_assistant/data", description="Directory for data files"
+        default="data", description="Directory for local application data"
     )
     gemini_api_key: str | None = Field(default=None, description="Gemini API Key")
     gemini_model: str = Field(

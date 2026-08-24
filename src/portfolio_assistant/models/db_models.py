@@ -10,15 +10,16 @@ if TYPE_CHECKING:
 
 class PortfolioBase(SQLModel):
     name: str = Field(index=True)
+    broker: str = Field(index=True)
     description: str | None = None
-    owner_id: int | None = Field(default=None, foreign_key="user.id")
+    user_id: int | None = Field(default=None, foreign_key="user.id")
 
 
 class Portfolio(PortfolioBase, table=True):
     id: int | None = Field(default=None, primary_key=True)
 
     positions: list["Position"] = Relationship(back_populates="portfolio")
-    owner: Optional["User"] = Relationship(back_populates="portfolios")
+    user: Optional["User"] = Relationship(back_populates="portfolios")
 
 
 class PositionBase(SQLModel):

@@ -6,10 +6,11 @@ from typing import Annotated, Any
 import jwt
 from bcrypt import checkpw, gensalt, hashpw
 from fastapi import Depends, HTTPException, Request, status
-from sqlmodel import Session, select
+from sqlmodel import Session
 
 from ..config import get_settings
 from ..core.database import get_db_session
+from ..crud.user import get_user_by_email
 from ..models.user import User
 
 settings = get_settings()
@@ -83,8 +84,7 @@ async def get_current_user(
             detail="Invalid session payload",
         )
 
-    statement = select(User).where(User.email == user_email)
-    user = session.exec(statement).first()
+    user = get_user_by_email(session, user_email)
 
     if user is None:
         raise HTTPException(

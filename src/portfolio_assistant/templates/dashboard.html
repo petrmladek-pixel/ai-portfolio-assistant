@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="cs">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -29,13 +29,13 @@
             <div id="auth-section">
                 {% if username %}
                 <div class="flex items-center space-x-4">
-                    <span class="text-gray-700 font-medium">Hello, {{ username }}</span>
-                    <button onclick="logout()" class="bg-red-50 text-red-600 px-4 py-2 rounded-md hover:bg-red-100 transition-colors">Logout</button>
+                    <span class="text-gray-700 font-medium">Ahoj, {{ username }}</span>
+                    <button onclick="logout()" class="bg-red-50 text-red-600 px-4 py-2 rounded-md hover:bg-red-100 transition-colors">Odhlásit</button>
                 </div>
                 {% else %}
                 <div class="flex space-x-4">
-                    <button onclick="toggleModal('login-modal')" class="text-indigo-600 hover:text-indigo-800 font-medium">Login</button>
-                    <button onclick="toggleModal('register-modal')" class="bg-indigo-600 text-white px-4 py-2 rounded-md hover:bg-indigo-700 transition-colors">Register</button>
+                    <button onclick="toggleModal('login-modal')" class="text-indigo-600 hover:text-indigo-800 font-medium">Přihlásit se</button>
+                    <button onclick="toggleModal('register-modal')" class="bg-indigo-600 text-white px-4 py-2 rounded-md hover:bg-indigo-700 transition-colors">Registrovat</button>
                 </div>
                 {% endif %}
             </div>
@@ -54,12 +54,28 @@
                 Import data from DEGIRO or Fio e-Broker, visualize your allocation, and get AI-powered insights to optimize your strategy.
             </p>
             <div class="flex justify-center space-x-6">
-                <button onclick="toggleModal('register-modal')" class="bg-indigo-600 text-white px-8 py-3 rounded-lg text-lg font-semibold hover:bg-indigo-700 transition-colors shadow-md">Get Started for Free</button>
+                <button onclick="toggleModal('register-modal')" class="bg-indigo-600 text-white px-8 py-3 rounded-lg text-lg font-semibold hover:bg-indigo-700 transition-colors shadow-md">Začít zdarma</button>
             </div>
         </div>
         {% endif %}
 
         {% if username %}
+        <!-- Portfolio Selection and Creation Controls -->
+        <div class="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-6 bg-white p-4 rounded-lg shadow-sm">
+            <div class="flex items-center space-x-3 w-full md:w-auto">
+                <label for="portfolio_selector" class="font-semibold text-gray-700 whitespace-nowrap">Vybrat portfolio:</label>
+                <select id="portfolio_selector" onchange="switchPortfolio(this.value)" class="border border-gray-300 rounded-md p-2 focus:ring-indigo-500 focus:border-indigo-500 w-full md:w-64 bg-gray-50">
+                    <option value="" {% if selected_portfolio_id is none %}selected{% endif %}>Všechna portfolia</option>
+                    {% for p in portfolios %}
+                    <option value="{{ p.id }}" {% if selected_portfolio_id == p.id %}selected{% endif %}>{{ p.name }} ({{ p.broker }})</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div>
+                <button onclick="toggleModal('create-portfolio-modal')" class="bg-indigo-600 text-white px-4 py-2 rounded-md hover:bg-indigo-700 transition-colors font-medium shadow">Vytvořit nové portfolio</button>
+            </div>
+        </div>
+
         <!-- Main Dashboard for Authenticated Users -->
         <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
             <!-- Left Column: Upload & Controls -->
@@ -69,20 +85,31 @@
                         <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12"></path>
                         </svg>
-                        Upload & Analyze
+                        Nahrát CSV data
                     </h2>
 
                     <form action="/upload" method="post" enctype="multipart/form-data" class="space-y-6">
-                        <div class="bg-indigo-50 p-4 rounded-lg border border-indigo-100">
-                            <label for="degiro_file" class="block text-sm font-semibold text-indigo-900 mb-2">DEGIRO CSV</label>
-                            <input type="file" name="degiro_file" id="degiro_file" accept=".csv"
-                                   class="block w-full text-sm text-indigo-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-indigo-600 file:text-white hover:file:bg-indigo-700 cursor-pointer">
+                        <div>
+                            <label for="upload_portfolio_id" class="block text-sm font-semibold text-gray-700 mb-2">Importovat do portfolia:</label>
+                            <select name="portfolio_id" id="upload_portfolio_id" required class="w-full border border-gray-300 rounded-md p-2 bg-gray-50 focus:ring-indigo-500 focus:border-indigo-500">
+                                {% for p in portfolios %}
+                                <option value="{{ p.id }}" {% if selected_portfolio_id == p.id or (selected_portfolio_id is none and loop.first) %}selected{% endif %}>{{ p.name }} ({{ p.broker }})</option>
+                                {% endfor %}
+                            </select>
                         </div>
 
-                        <div class="bg-blue-50 p-4 rounded-lg border border-blue-100">
-                            <label for="fio_file" class="block text-sm font-semibold text-blue-900 mb-2">Fio e-Broker CSV</label>
-                            <input type="file" name="fio_file" id="fio_file" accept=".csv"
-                                   class="block w-full text-sm text-blue-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-blue-600 file:text-white hover:file:bg-blue-700 cursor-pointer">
+                        <div>
+                            <label for="import_type" class="block text-sm font-semibold text-gray-700 mb-2">Typ importu:</label>
+                            <select name="import_type" id="import_type" required class="w-full border border-gray-300 rounded-md p-2 bg-gray-50 focus:ring-indigo-500 focus:border-indigo-500">
+                                <option value="degiro">DEGIRO</option>
+                                <option value="fio">Fio e-Broker</option>
+                            </select>
+                        </div>
+
+                        <div class="bg-indigo-50 p-4 rounded-lg border border-indigo-100">
+                            <label for="file" class="block text-sm font-semibold text-indigo-900 mb-2">CSV soubor</label>
+                            <input type="file" name="file" id="file" accept=".csv" required
+                                   class="block w-full text-sm text-indigo-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-indigo-600 file:text-white hover:file:bg-indigo-700 cursor-pointer">
                         </div>
 
                         <button type="submit"
@@ -90,18 +117,18 @@
                             <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"></path>
                             </svg>
-                            Sync & Analyze
+                            Synchronize and Analyze
                         </button>
                     </form>
                 </div>
 
                 <!-- Existing Portfolio Info -->
                 <div id="saved-portfolio-card" class="bg-white rounded-xl shadow-md p-6 hidden">
-                    <h2 class="text-xl font-bold mb-4 text-gray-800">Saved Portfolio</h2>
+                    <h2 class="text-xl font-bold mb-4 text-gray-800">Uložené portfolio</h2>
                     <div id="saved-portfolio-details" class="space-y-3">
                         <!-- Filled by JS -->
                     </div>
-                    <button onclick="window.location.reload()" class="mt-4 w-full text-indigo-600 font-medium hover:underline">Refresh Data</button>
+                    <button onclick="window.location.reload()" class="mt-4 w-full text-indigo-600 font-medium hover:underline">Aktualizovat data</button>
                 </div>
             </div>
 
@@ -114,7 +141,7 @@
                             <path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z" clip-rule="evenodd" />
                         </svg>
                         <div>
-                            <h3 class="text-lg font-bold text-red-800">Error Occurred</h3>
+                            <h3 class="text-lg font-bold text-red-800">Došlo k chybě</h3>
                             <p class="text-red-700">{{ error }}</p>
                         </div>
                     </div>
@@ -126,11 +153,11 @@
                 <div class="bg-white rounded-xl shadow-md p-8 border-b-4 border-indigo-500">
                     <div class="flex flex-col md:flex-row justify-between items-start md:items-center mb-8">
                         <div>
-                            <h2 class="text-2xl font-bold text-gray-800">Portfolio Performance</h2>
-                            <p class="text-gray-500">As of {{ valued_portfolio.valued_at.strftime('%Y-%m-%d %H:%M:%S') }}</p>
+                            <h2 class="text-2xl font-bold text-gray-800">Výkonnost portfolia</h2>
+                            <p class="text-gray-500">K datu {{ valued_portfolio.valued_at.strftime('%Y-%m-%d %H:%M:%S') }}</p>
                         </div>
                         <div class="mt-4 md:mt-0 bg-indigo-600 text-white px-6 py-3 rounded-2xl shadow-lg">
-                            <span class="text-sm opacity-80 block">Total Net Worth</span>
+                            <span class="text-sm opacity-80 block">Celková hodnota</span>
                             <span class="text-3xl font-extrabold">{{ total_value_formatted }} {{ valued_portfolio.target_currency }}</span>
                         </div>
                     </div>
@@ -138,7 +165,7 @@
                     <!-- Charts & Table -->
                     <div class="grid grid-cols-1 xl:grid-cols-2 gap-8 mb-8">
                         <div class="bg-gray-50 p-6 rounded-xl border border-gray-100">
-                            <h3 class="text-lg font-bold mb-4 text-gray-700 text-center">Asset Allocation</h3>
+                            <h3 class="text-lg font-bold mb-4 text-gray-700 text-center">Alokace aktiv</h3>
                             <div class="relative h-64">
                                 <canvas id="allocationChart"></canvas>
                             </div>
@@ -148,8 +175,8 @@
                                 <thead class="bg-gray-50">
                                     <tr>
                                         <th class="px-4 py-3 text-left text-xs font-bold text-gray-500 uppercase">Ticker</th>
-                                        <th class="px-4 py-3 text-right text-xs font-bold text-gray-500 uppercase">Value</th>
-                                        <th class="px-4 py-3 text-right text-xs font-bold text-gray-500 uppercase">Weight</th>
+                                        <th class="px-4 py-3 text-right text-xs font-bold text-gray-500 uppercase">Hodnota</th>
+                                        <th class="px-4 py-3 text-right text-xs font-bold text-gray-500 uppercase">Váha</th>
                                     </tr>
                                 </thead>
                                 <tbody class="divide-y divide-gray-200">
@@ -173,10 +200,10 @@
                                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"></path>
                                 </svg>
                             </div>
-                            <h3 class="text-2xl font-bold">AI Intelligent Review</h3>
+                            <h3 class="text-2xl font-bold">AI Inteligentní přehled</h3>
                         </div>
                         <div id="ai-analysis-rendered" class="prose prose-invert max-w-none text-indigo-100">
-                            <p class="italic animate-pulse">Generating your personalized investment strategy...</p>
+                            <p class="italic animate-pulse">Generování vaší personalizované investiční strategie...</p>
                         </div>
                     </div>
                 </div>
@@ -186,8 +213,8 @@
                     <svg class="w-16 h-16 text-gray-300 mx-auto mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 17v-2m3 2v-4m3 4v-6m2 10H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
                     </svg>
-                    <h3 class="text-xl font-bold text-gray-700">No Portfolio Loaded</h3>
-                    <p class="text-gray-500 mt-2">Upload your broker export files on the left to start the analysis.</p>
+                    <h3 class="text-xl font-bold text-gray-700">Žádné portfolio není načteno</h3>
+                    <p class="text-gray-500 mt-2">Nahrajte exportní CSV soubory od vašeho brokera pro zahájení analýzy.</p>
                 </div>
                 {% endif %}
             </div>
@@ -204,13 +231,44 @@
     </div>
 
     <!-- Modals -->
+    <!-- Create Portfolio Modal -->
+    <div id="create-portfolio-modal" class="modal opacity-0 pointer-events-none fixed w-full h-full top-0 left-0 flex items-center justify-center z-50">
+        <div class="modal-overlay absolute w-full h-full bg-gray-900 opacity-50"></div>
+        <div class="modal-container bg-white w-11/12 md:max-w-md mx-auto rounded shadow-lg z-50 overflow-y-auto">
+            <div class="modal-content py-4 text-left px-6">
+                <div class="flex justify-between items-center pb-3 border-b border-gray-200">
+                    <p class="text-2xl font-bold text-gray-800">Nové portfolio</p>
+                    <button onclick="toggleModal('create-portfolio-modal')" class="text-gray-400 hover:text-gray-600">
+                        <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+                        </svg>
+                    </button>
+                </div>
+                <form action="/portfolios" method="post" class="mt-6 space-y-4">
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700">Název portfolia</label>
+                        <input type="text" name="name" required placeholder="Např. Moje Fio DIP" class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm p-2 focus:ring-indigo-500 focus:border-indigo-500">
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700">Broker</label>
+                        <select name="broker" required class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm p-2 focus:ring-indigo-500 focus:border-indigo-500 bg-white">
+                            <option value="Fio">Fio e-Broker</option>
+                            <option value="DEGIRO">DEGIRO</option>
+                        </select>
+                    </div>
+                    <button type="submit" class="w-full bg-indigo-600 text-white py-2 rounded-md font-bold hover:bg-indigo-700">Vytvořit</button>
+                </form>
+            </div>
+        </div>
+    </div>
+
     <!-- Login Modal -->
     <div id="login-modal" class="modal opacity-0 pointer-events-none fixed w-full h-full top-0 left-0 flex items-center justify-center z-50">
         <div class="modal-overlay absolute w-full h-full bg-gray-900 opacity-50"></div>
         <div class="modal-container bg-white w-11/12 md:max-w-md mx-auto rounded shadow-lg z-50 overflow-y-auto">
             <div class="modal-content py-4 text-left px-6">
                 <div class="flex justify-between items-center pb-3 border-b border-gray-200">
-                    <p class="text-2xl font-bold text-gray-800">Welcome Back</p>
+                    <p class="text-2xl font-bold text-gray-800">Vítejte zpět</p>
                     <button onclick="toggleModal('login-modal')" class="text-gray-400 hover:text-gray-600">
                         <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
@@ -219,14 +277,14 @@
                 </div>
                 <form id="login-form" class="mt-6 space-y-4" onsubmit="handleAuth(event, 'login')">
                     <div>
-                        <label class="block text-sm font-medium text-gray-700">Email Address</label>
+                        <label class="block text-sm font-medium text-gray-700">E-mailová adresa</label>
                         <input type="email" name="email" required class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm p-2 focus:ring-indigo-500 focus:border-indigo-500">
                     </div>
                     <div>
-                        <label class="block text-sm font-medium text-gray-700">Password</label>
+                        <label class="block text-sm font-medium text-gray-700">Heslo</label>
                         <input type="password" name="password" required class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm p-2 focus:ring-indigo-500 focus:border-indigo-500">
                     </div>
-                    <button type="submit" class="w-full bg-indigo-600 text-white py-2 rounded-md font-bold hover:bg-indigo-700">Login</button>
+                    <button type="submit" class="w-full bg-indigo-600 text-white py-2 rounded-md font-bold hover:bg-indigo-700">Přihlásit se</button>
                 </form>
             </div>
         </div>
@@ -238,7 +296,7 @@
         <div class="modal-container bg-white w-11/12 md:max-w-md mx-auto rounded shadow-lg z-50 overflow-y-auto">
             <div class="modal-content py-4 text-left px-6">
                 <div class="flex justify-between items-center pb-3 border-b border-gray-200">
-                    <p class="text-2xl font-bold text-gray-800">Create Account</p>
+                    <p class="text-2xl font-bold text-gray-800">Vytvořit účet</p>
                     <button onclick="toggleModal('register-modal')" class="text-gray-400 hover:text-gray-600">
                         <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
@@ -247,18 +305,18 @@
                 </div>
                 <form id="register-form" class="mt-6 space-y-4" onsubmit="handleAuth(event, 'register')">
                     <div>
-                        <label class="block text-sm font-medium text-gray-700">Full Name</label>
+                        <label class="block text-sm font-medium text-gray-700">Celé jméno</label>
                         <input type="text" name="full_name" required class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm p-2 focus:ring-indigo-500 focus:border-indigo-500">
                     </div>
                     <div>
-                        <label class="block text-sm font-medium text-gray-700">Email Address</label>
+                        <label class="block text-sm font-medium text-gray-700">E-mailová adresa</label>
                         <input type="email" name="email" required class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm p-2 focus:ring-indigo-500 focus:border-indigo-500">
                     </div>
                     <div>
-                        <label class="block text-sm font-medium text-gray-700">Password</label>
+                        <label class="block text-sm font-medium text-gray-700">Heslo</label>
                         <input type="password" name="password" required class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm p-2 focus:ring-indigo-500 focus:border-indigo-500">
                     </div>
-                    <button type="submit" class="w-full bg-indigo-600 text-white py-2 rounded-md font-bold hover:bg-indigo-700">Create Account</button>
+                    <button type="submit" class="w-full bg-indigo-600 text-white py-2 rounded-md font-bold hover:bg-indigo-700">Registrovat</button>
                 </form>
             </div>
         </div>
@@ -271,6 +329,15 @@
             modal.classList.toggle('opacity-0');
             modal.classList.toggle('pointer-events-none');
             document.body.classList.toggle('modal-active');
+        }
+
+        // Switch active portfolio
+        function switchPortfolio(val) {
+            if (val) {
+                window.location.href = '/?portfolio_id=' + val;
+            } else {
+                window.location.href = '/';
+            }
         }
 
         // Auth handlers
@@ -302,33 +369,8 @@
             window.location.reload();
         }
 
-        // Dashboard data fetching
-        async function loadPortfolioInfo() {
-            try {
-                const response = await fetch('/api/portfolio/me');
-                if (response.ok) {
-                    const data = await response.json();
-                    if (data.positions && data.positions.length > 0) {
-                        const card = document.getElementById('saved-portfolio-card');
-                        const details = document.getElementById('saved-portfolio-details');
-                        card.classList.remove('hidden');
-
-                        details.innerHTML = `
-                            <div class="flex justify-between"><span class="text-gray-500">Source:</span> <span class="font-bold">${data.broker_name}</span></div>
-                            <div class="flex justify-between"><span class="text-gray-500">Holdings:</span> <span class="font-bold">${data.positions.length}</span></div>
-                        `;
-                    }
-                }
-            } catch (e) { console.error('Failed to load portfolio info'); }
-        }
-
         // Visualization
         document.addEventListener('DOMContentLoaded', function() {
-            // Load background info
-            if (document.getElementById('saved-portfolio-card')) {
-                loadPortfolioInfo();
-            }
-
             // Render chart
             const chartDataEl = document.getElementById('chart-data');
             if (chartDataEl) {

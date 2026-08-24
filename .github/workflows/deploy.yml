@@ -110,6 +110,11 @@ jobs:
           region: ${{ env.REGION }}
           image: >-
             ${{ env.REGION }}-docker.pkg.dev/${{ env.PROJECT_ID }}/${{ env.GAR_REPOSITORY }}/${{ env.SERVICE }}:${{ steps.vars.outputs.tag }}
+          flags: >-
+            --max-instances=2
+            --concurrency=80
+            --cpu=1
+            --memory=512Mi
 
       - name: Show Output URL
         run: |

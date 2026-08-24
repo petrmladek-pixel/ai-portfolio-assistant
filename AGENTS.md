@@ -25,7 +25,27 @@ The project strictly uses a modern src-layout with the uv package manager.
   API endpoints, or sensitive keys. Always use `.env` files, environment
   variables, or a dedicated configuration class (e.g., Pydantic Settings).
 
-## 3. Strict Code Quality, Modularity & DRY Rules
+## 3. Architecture Standards (Pragmatic Layering)
+
+To ensure long-term maintainability, reuse, and easy navigation for AI agents,
+the codebase strictly follows a pragmatic, lightweight three-tier layering:
+
+- **Routers (HTTP Tier):** Located under `routers/` or `api/`. They handle HTTP
+  routing, status codes, input/output validation, cookies, and exceptions.
+  Never write raw SQL/SQLModel queries here. They must call CRUD functions or
+  Services. If a Domain Exception is raised, map it to a FastAPI `HTTPException`.
+- **Services (Business Tier - Optional):** Located under `services/`. Used ONLY
+  for complex workflows coordinating multiple database operations, external API
+  integrations, logging, and stateful logic (e.g., user registration combined with
+  default portfolio creation). They must remain HTTP-agnostic (no FastAPI imports,
+  no `HTTPException`). Raise custom domain exceptions inheriting from
+  `DomainException`.
+- **CRUD (Database Tier):** Located under `crud/`. Pure, stateless, module-level
+  Python functions (no classes or interfaces). They handle database operations
+  directly (select, insert, update, delete). They accept a `Session` and return
+  SQLModel database models. No business logic belongs here.
+
+## 4. Strict Code Quality, Modularity & DRY Rules
 
 - **Zero Tolerance for Duplication (DRY):** Never copy-paste or duplicate entire
   code blocks to create parallel sync/async pathways. If a sync and async method
@@ -48,7 +68,7 @@ The project strictly uses a modern src-layout with the uv package manager.
 - **Async HTTP Client:** Use `httpx2` (the Pydantic-maintained successor) for all
   asynchronous and synchronous HTTP requests instead of legacy `httpx` or `aiohttp`.
 
-## 4. Secure Data Pipeline & ISIN Resolution Rules
+## 5. Secure Data Pipeline & ISIN Resolution Rules
 
 - **No Hardcoded Data Fallbacks:** Never keep or maintain static fallback
   dictionaries (like `ISIN_TO_TICKER` inside parsers) if a dynamic resolver
@@ -61,7 +81,7 @@ The project strictly uses a modern src-layout with the uv package manager.
   `"Unknown Asset (ISIN: {isin})"`), and set all its financial/valuation amounts to
   `Decimal("0.00")`. Never let raw, unresolved identifiers flow downstream.
 
-## 5. Development and Testing Workflow
+## 6. Development and Testing Workflow
 
 - Manage all dependencies with `uv`.
 - Use Ruff for static analysis and formatting.
@@ -78,7 +98,7 @@ The project strictly uses a modern src-layout with the uv package manager.
   of your findings and the current traceback, and ask the user for manual
   intervention. Do not loop recursively beyond 2 attempts.
 
-## 6. Commit Standards (STRICT)
+## 7. Commit Standards (STRICT)
 
 Whenever you generate a commit message or create a commit, you MUST write the
 commit message in English and strictly follow the Conventional Commits format:
@@ -92,7 +112,7 @@ Types:
 - chore: Maintenance, packages, or gitignore changes
 - refactor: A code change that does not alter behavior or output
 
-## 7. Behavior & Code Hygiene Rules
+## 8. Behavior & Code Hygiene Rules
 
 1. Always ensure that sensitive keys, such as variables stored in `.env`, are
    never included in commits.
