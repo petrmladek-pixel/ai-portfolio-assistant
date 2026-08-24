@@ -32,11 +32,15 @@ class UserService:
             is_active=user_data.is_active,
             is_superuser=user_data.is_superuser,
         )
-        created_user = create_user(session, user)
-        self.portfolio_service.ensure_default_portfolio(
-            session, self._user_id(created_user)
-        )
-        return created_user
+        try:
+            created_user = create_user(session, user)
+            self.portfolio_service.ensure_default_portfolio(
+                session, self._user_id(created_user)
+            )
+            return created_user
+        except Exception:
+            session.rollback()
+            raise
 
     def authenticate(self, session: Session, user_data: UserCreate) -> User:
         """Validate credentials and return the active user."""

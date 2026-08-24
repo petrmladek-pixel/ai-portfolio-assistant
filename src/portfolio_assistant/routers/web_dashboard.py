@@ -2,6 +2,7 @@
 
 import json
 import logging
+from collections.abc import Sequence
 from datetime import datetime
 from typing import Annotated, Any
 
@@ -19,12 +20,14 @@ from portfolio_assistant.dependencies import (
     get_optional_current_user,
     get_persisted_user_id,
 )
+from portfolio_assistant.models.db_models import Portfolio
 from portfolio_assistant.models.portfolio import (
     Currency,
     ImportedPortfolio,
     StockPosition,
 )
 from portfolio_assistant.models.user import User
+from portfolio_assistant.models.valuation import ValuedPortfolio
 from portfolio_assistant.services.ai.gemini import GeminiAIService
 from portfolio_assistant.services.portfolio_merger import PortfolioMerger
 from portfolio_assistant.services.portfolio_service import PortfolioService
@@ -99,15 +102,18 @@ def _base_context(user: User | None, portfolio_id: int | None) -> dict[str, Any]
 
 
 def _select_portfolios(
-    session: Session, user_id: int, portfolio_id: int | None, portfolios: Any
-) -> list[Any]:
+    session: Session,
+    user_id: int,
+    portfolio_id: int | None,
+    portfolios: Sequence[Portfolio],
+) -> list[Portfolio]:
     if portfolio_id is None:
         return list(portfolios)
     portfolio = get_portfolio_for_user(session, portfolio_id, user_id)
     return [portfolio] if portfolio is not None else []
 
 
-def _to_imported_portfolios(portfolios: list[Any]) -> list[ImportedPortfolio]:
+def _to_imported_portfolios(portfolios: Sequence[Portfolio]) -> list[ImportedPortfolio]:
     imported: list[ImportedPortfolio] = []
     for portfolio in portfolios:
         if portfolio.positions:
@@ -138,7 +144,7 @@ def _merge_portfolios(
     )
 
 
-def _valuation_context(valued: Any) -> dict[str, Any]:
+def _valuation_context(valued: ValuedPortfolio) -> dict[str, Any]:
     return {
         "valued_portfolio": valued,
         "total_value_formatted": format_currency(valued.total_value),
