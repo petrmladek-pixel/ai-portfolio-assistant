@@ -15,6 +15,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Centralized configurations in `pyproject.toml`.
 - GitHub Actions CI pipeline with automated linting, typing, and testing.
 
+## [0.7.0](https://github.com/petrmladek-pixel/ai-portfolio-assistant/compare/v0.6.1...v0.7.0) (2026-08-24)
+
+
+### Features
+
+* **dashboard:** localize UI text to Czech and add portfolio management features ([997bb5b](https://github.com/petrmladek-pixel/ai-portfolio-assistant/commit/997bb5b7f758eac9b7efd7e20ee48f1c31f101c2))
+* **env:** update environment variables for portfolio assistant configuration ([49f82ab](https://github.com/petrmladek-pixel/ai-portfolio-assistant/commit/49f82ab33b79081e3749ca35373860a223c7a7a4))
+* **portfolio:** add broker field to portfolio model and update relationships ([4572cb9](https://github.com/petrmladek-pixel/ai-portfolio-assistant/commit/4572cb9bc305f7cbda72fbf10f88fef34d157f03))
+* **portfolio:** add support for importing broker portfolios and default portfolio creation ([02e13dd](https://github.com/petrmladek-pixel/ai-portfolio-assistant/commit/02e13ddf12079350c36a0ddecada951b85aa180f))
+* **portfolio:** implement portfolio creation and upload services with CRUD operations ([db92ab5](https://github.com/petrmladek-pixel/ai-portfolio-assistant/commit/db92ab50ea1b5722bb12242969de634ebf14662a))
+
+
+### Bug Fixes
+
+* **isin_cache:** ensure parent directory exists before creating database tables ([311934a](https://github.com/petrmladek-pixel/ai-portfolio-assistant/commit/311934a4e1fc01bf0a8053910dda2046f56d87cd))
+* **user_service:** handle exceptions during user creation and ensure session rollback ([5831064](https://github.com/petrmladek-pixel/ai-portfolio-assistant/commit/5831064249e73c3fbebaecb7c5ca731bc74b47d4))
+
 ## [0.6.1](https://github.com/petrmladek-pixel/ai-portfolio-assistant/compare/v0.6.0...v0.6.1) (2026-08-20)
 
 
