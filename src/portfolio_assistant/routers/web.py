@@ -4,8 +4,8 @@ from decimal import Decimal
 from pathlib import Path
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, Form, HTTPException
-from fastapi.responses import RedirectResponse
+from fastapi import APIRouter, Depends, Form, HTTPException, Request
+from fastapi.responses import HTMLResponse, RedirectResponse
 from fastapi.templating import Jinja2Templates
 from sqlmodel import Session
 
@@ -98,3 +98,15 @@ async def create_portfolio_web(
             status_code=500, detail="Failed to create portfolio"
         ) from None
     return RedirectResponse("/", status_code=303)
+
+
+@router.get("/login", response_class=HTMLResponse, include_in_schema=False)
+async def login_page(request: Request) -> HTMLResponse:
+    """Render the login page."""
+    return templates.TemplateResponse(request, "login.html", {})
+
+
+@router.get("/register", response_class=HTMLResponse)
+async def register_page(request: Request) -> HTMLResponse:
+    """Render the registration page."""
+    return templates.TemplateResponse(request, "register.html", {})

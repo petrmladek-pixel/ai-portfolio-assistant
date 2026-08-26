@@ -1,0 +1,67 @@
+{% extends "layouts/base.html" %}
+
+{% block title %}Přihlášení - AI Portfolio Assistant{% endblock %}
+
+{% block body %}
+<div class="flex min-h-screen items-center justify-center bg-background px-4 py-12">
+  <div class="w-full max-w-md rounded-sm border border-border bg-card p-8">
+    <div class="mb-6 text-center">
+      <h1 class="text-sm font-bold uppercase tracking-tight text-foreground">Přihlášení do AI Assistant</h1>
+      <p class="mt-1 text-xs text-muted-foreground">Přihlaste se ke svému účtu</p>
+    </div>
+
+    <form action="/api/auth/login" method="POST" id="login-form" class="flex flex-col gap-4">
+      <div>
+        <label class="mb-1.5 block text-[11px] font-medium uppercase tracking-wider text-muted-foreground">E-mail</label>
+        <input type="email" name="email" required class="w-full rounded-sm border border-border bg-card px-3 py-2.5 text-sm text-foreground outline-none transition-colors focus:border-foreground" />
+      </div>
+
+      <div>
+        <label class="mb-1.5 block text-[11px] font-medium uppercase tracking-wider text-muted-foreground">Heslo</label>
+        <input type="password" name="password" required class="w-full rounded-sm border border-border bg-card px-3 py-2.5 text-sm text-foreground outline-none transition-colors focus:border-foreground" />
+      </div>
+
+      <div id="error-msg" class="hidden rounded-sm bg-red-50 p-3 text-xs text-red-600"></div>
+
+      <button type="submit" class="mt-2 w-full rounded-sm bg-primary px-4 py-3 text-sm font-semibold text-primary-foreground transition-all hover:opacity-90">
+        Přihlásit se
+      </button>
+    </form>
+
+    <div class="mt-6 flex items-center justify-between text-xs text-muted-foreground">
+      <span>Nemáte účet? <a href="/register" class="font-medium text-foreground underline underline-offset-2">Registrujte se</a></span>
+      <a href="/" class="font-medium text-foreground underline underline-offset-2">Zpět na přehled</a>
+    </div>
+  </div>
+</div>
+
+<script>
+  document.getElementById("login-form").addEventListener("submit", async (e) => {
+    e.preventDefault();
+    const form = e.target;
+    const formData = new FormData(form);
+    const data = Object.fromEntries(formData.entries());
+    const errDiv = document.getElementById("error-msg");
+    errDiv.classList.add("hidden");
+
+    try {
+      const response = await fetch(form.action, {
+        method: form.method,
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(data),
+      });
+
+      if (response.ok) {
+        window.location.href = "/";
+      } else {
+        const result = await response.json();
+        errDiv.textContent = result.detail || "Přihlášení se nezdařilo.";
+        errDiv.classList.remove("hidden");
+      }
+    } catch (err) {
+      errDiv.textContent = "Chyba připojení k serveru.";
+      errDiv.classList.remove("hidden");
+    }
+  });
+</script>
+{% endblock %}

@@ -19,7 +19,7 @@ class Settings(BaseSettings):
     )
 
     # Basic settings
-    app_name: str = Field(default="python_template_uv", description="Application name")
+    app_name: str = Field(default="portfolio_assistant", description="Application name")
     environment: Literal["development", "testing", "staging", "production"] = Field(
         default="development", description="Runtime environment"
     )
