@@ -1,0 +1,47 @@
+<section class="grid grid-cols-1 gap-4 lg:grid-cols-3">
+  <!-- Sektorové rozdělení (Ošetřeno proti přetečení na úzkých obrazovkách) -->
+  <div class="flex flex-col rounded-sm border border-border bg-card p-6 min-w-0">
+    <h3 class="mb-6 text-[11px] font-semibold uppercase tracking-wider text-foreground">
+      Sektorové rozdělení
+    </h3>
+    <div id="donut-sector" class="w-full min-w-0 overflow-hidden">
+      <!-- Generováno skriptem v dashboard.html -->
+    </div>
+  </div>
+
+  <!-- Geografické rozdělení (Ošetřeno proti přetečení na úzkých obrazovkách) -->
+  <div class="flex flex-col rounded-sm border border-border bg-card p-6 min-w-0">
+    <h3 class="mb-6 text-[11px] font-semibold uppercase tracking-wider text-foreground">
+      Geografické rozdělení
+    </h3>
+    <div id="donut-geo" class="w-full min-w-0 overflow-hidden">
+      <!-- Generováno skriptem v dashboard.html -->
+    </div>
+  </div>
+
+  <!-- Váhy pozic (Top 5 progress bars) -->
+  <div class="flex flex-col rounded-sm border border-border bg-card p-6">
+    <h3 class="mb-6 text-[11px] font-semibold uppercase tracking-wider text-foreground">
+      Váhy pozic (Top 5)
+    </h3>
+    <ul id="weight-bars" class="flex flex-1 flex-col justify-center gap-5">
+      {% for asset in top_weights | default([
+        {'label': 'AAPL', 'value': 18, 'color': '#475569'},
+        {'label': 'MSFT', 'value': 14, 'color': '#6b7280'},
+        {'label': 'TSLA', 'value': 10, 'color': '#0f766e'},
+        {'label': 'NVDA', 'value': 9, 'color': '#b45309'},
+        {'label': 'AMZN', 'value': 7, 'color': '#374151'}
+      ]) %}
+      <li>
+        <div class="mb-2 flex items-baseline justify-between font-mono text-sm">
+          <span class="font-medium text-foreground">{{ asset.label }}</span>
+          <span class="text-muted-foreground">{{ asset.value }}&nbsp;%</span>
+        </div>
+        <div class="h-1.5 w-full overflow-hidden rounded-sm bg-secondary">
+          <div class="h-full rounded-sm" style="width: {{ asset.value }}%; background-color: {{ asset.color }}"></div>
+        </div>
+      </li>
+      {% endfor %}
+    </ul>
+  </div>
+</section>

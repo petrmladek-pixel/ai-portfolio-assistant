@@ -55,7 +55,7 @@ class PortfolioService:
         try:
             imported = await parser.parse(file_content)
         except Exception as error:
-            raise PortfolioImportError from error
+            raise PortfolioImportError(str(error)) from error
         self.replace_imported_positions(session, user_id, portfolio_id, imported)
         return imported
 

@@ -1,6 +1,5 @@
 """Portfolio upload endpoint."""
 
-import json
 import logging
 from typing import Annotated, Any
 
@@ -19,6 +18,7 @@ from portfolio_assistant.crud.portfolio import get_portfolios_for_user
 from portfolio_assistant.dependencies import get_current_user, get_persisted_user_id
 from portfolio_assistant.models.portfolio import Currency
 from portfolio_assistant.models.user import User
+from portfolio_assistant.routers.web_dashboard import _valuation_context
 from portfolio_assistant.services.ai.gemini import GeminiAIService
 from portfolio_assistant.services.parser.degiro import DegiroPortfolioParser
 from portfolio_assistant.services.parser.fio_broker import FioBrokerPortfolioParser
@@ -26,7 +26,6 @@ from portfolio_assistant.services.portfolio_service import PortfolioService
 from portfolio_assistant.services.valuation.engine import ValuationService
 
 from .web import (
-    format_currency,
     get_fio_parser,
     get_gemini_service,
     get_portfolio_parser,
@@ -96,23 +95,17 @@ async def upload_portfolio(
 def _success_context(
     user: User, portfolios: Any, portfolio_id: int, valued: Any
 ) -> dict[str, Any]:
-    return {
-        "valued_portfolio": valued,
-        "total_value_formatted": format_currency(valued.total_value),
-        "chart_data_json": json.dumps(
-            {
-                "labels": [position.ticker for position in valued.positions],
-                "weights": [
-                    float(position.weight * 100) for position in valued.positions
-                ],
-            }
-        ),
-        "error": None,
+    context = {
+        "current_user": user,
+        "current_user_email": user.email,
         "username": user.email,
         "ai_analysis_markdown": "",
         "portfolios": portfolios,
         "selected_portfolio_id": portfolio_id,
+        "error": None,
     }
+    context.update(_valuation_context(valued))
+    return context
 
 
 def _error_context(
@@ -123,6 +116,8 @@ def _error_context(
         "total_value_formatted": None,
         "chart_data_json": None,
         "error": f"Error processing portfolio: {error}",
+        "current_user": user,
+        "current_user_email": user.email,
         "username": user.email,
         "ai_analysis_markdown": "",
         "portfolios": portfolios,

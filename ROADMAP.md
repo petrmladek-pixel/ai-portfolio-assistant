@@ -41,14 +41,32 @@ A lightweight, privacy-focused web application that parses broker exports (CSV/P
   - [x] Create an automated code hygiene Pytest checking for accidental Czech diacritics in Python source files.
   - [x] Translate the system prompt in `gemini.py` to English for optimal reasoning, forcing Czech only for the final output.
 
-### Phase 4: Persistence, User Identity & Interactive AI (Current Focus 🎯)
+### Phase 4: Persistence, User Identity & Multi-Portfolio (Completed 🎉)
 * **Sprint 6: Database Storage & User Accounts**
-  - [ ] Refactor the upload endpoint to make individual broker files optional (allow uploading only Fio, only DEGIRO, or both).
-  - [ ] Set up a local SQLite database via **SQLAlchemy/SQLModel** with schemas for `users`, `portfolios`, and `positions`.
-  - [ ] Implement secure password hashing (`bcrypt`/`argon2`) and HttpOnly cookie-based session/JWT authentication.
-  - [ ] Persist parsed/merged positions into the database, allowing users to view their stored portfolio without re-uploading files.
-* **Sprint 7: Stateful Chat, Custom Prompts & Localization**
-  - [ ] Implement a stateful `/api/chat` endpoint to allow follow-up conversations with Gemini about the stored database portfolio.
-  - [ ] Add an interactive chat interface to the dashboard.
-  - [ ] Save customizable system prompts in the database per-user and expose an "AI Settings" editing area in the UI.
-  - [ ] Implement multi-language localization (EN, CS, FR, DE) for both the UI dashboard (using JSON translation bundles) and the AI analysis output.
+  - [x] Refactor the upload endpoint to make individual broker files optional (allow uploading only Fio, only DEGIRO, or both).
+  - [x] Set up a local SQLite database via **SQLAlchemy/SQLModel** with schemas for `users`, `portfolios`, and `positions`.
+  - [x] Implement secure password hashing (`bcrypt`) and HttpOnly cookie-based session/JWT authentication.
+  - [x] Persist parsed/merged positions into the database, allowing users to view their stored portfolio without re-uploading files.
+* **Sprint 7: SRE Hardening, Migrations & Layered Architecture**
+  - [x] **CD Keyless Deployment:** Configured secure, keyless GCP authentication via Workload Identity Federation (WIF) and optimized multi-tag Docker build caching.
+  - [x] **Cost & Guardrails Hardening:** Configured automatic monthly budget alerts ($10), regional Compute Engine quota limits, and Cloud Run scaling caps (`--max-instances=3`).
+  - [x] **Alembic Database Migrations:** Implemented the Alembic migration framework, established programmatic migrations on application startup, and secured SQLite locks.
+  - [x] **Pragmatic Layered Architecture:** Refactored backend routers to strictly follow 3-tier layering (Routers -> Services -> CRUD) and introduced structured Domain Exception handling.
+  - [x] **Multi-Portfolio DB Schema:** Implemented the `Portfolio` model in the database to support separate accounts/portfolios per broker per user.
+
+### Phase 5: Premium Visual Facelift & AI Intelligence (Current Focus 🎯)
+* **Sprint 8: Swiss-Style UI & Interactive AI**
+  - [ ] **Swiss-Style Dashboard Facelift:** Refactor Jinja2 templates into clean, modular sub-components (< 150 lines) based on the premium minimalist layout.
+  - [ ] **Unified Upload Form:** Simplify the upload section to a single unified form with target portfolio selection, import type (DEGIRO/Fio), and a single file input.
+  - [ ] **Stateful AI Chat (Issue #29):** Implement `/api/chat` to allow follow-up conversations with Gemini, persisting chat history in the SQLite database.
+  - [ ] **Customizable System Prompts:** Add `analysis_prompt` per-user settings to the database and expose an editing interface.
+  - [ ] **Multi-Allocation Charts (Issue #32 & #57):** Fetch sector and country metadata from Yahoo Finance, cache them in `SQLiteISINCache`, and render separate Sector and Geographical Donut Charts on the dashboard.
+
+### Phase 6: Historical Performance & Advanced Analytics (Upcoming 🚀)
+* **Sprint 9: Historical Tracking & Benchmarking**
+  - [ ] Implement database models (`PortfolioHistory`) to periodically store daily portfolio valuation snapshots.
+  - [ ] Render a historical performance line chart on the dashboard.
+  - [ ] Implement benchmarking to compare portfolio returns against major market indices (e.g., S&P 500, MSCI World).
+* **Sprint 10: ETF Look-Through & Multi-Language**
+  - [ ] **ETF Look-Through (Issue #33):** Support breaking down ETFs into their raw individual constituent holdings for deeper risk analysis.
+  - [ ] **Localization (Issue #30):** Implement multi-language localization (EN, CS, FR, DE) for both the UI dashboard and the AI evaluation output.

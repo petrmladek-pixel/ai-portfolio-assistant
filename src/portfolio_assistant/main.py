@@ -3,7 +3,8 @@ import os
 from collections.abc import AsyncGenerator
 from contextlib import asynccontextmanager
 
-from fastapi import FastAPI
+from fastapi import FastAPI, Response
+from fastapi.responses import FileResponse
 
 from .config import get_settings
 from .core.migrations import run_db_migrations
@@ -34,3 +35,14 @@ app.include_router(web_upload.router)
 @app.get("/health")
 def health_check() -> dict[str, str]:
     return {"status": "ok", "environment": settings.environment}
+
+
+@app.get("/favicon.ico", include_in_schema=False, response_model=None)
+async def favicon() -> Response | FileResponse:
+    """Serves the favicon from public directory or silences browser with 204."""
+    favicon_path = os.path.join("public", "icon-light-32x32.png")
+
+    if os.path.exists(favicon_path):
+        return FileResponse(favicon_path, media_type="image/png")
+
+    return Response(status_code=204)
