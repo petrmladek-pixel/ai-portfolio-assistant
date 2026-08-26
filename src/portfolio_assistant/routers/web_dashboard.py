@@ -1,5 +1,5 @@
-"""Dashboard rendering endpoint."""
-
+# app/routers/dashboard.py
+# Strict Python 3.12, under 150 lines of code. No Czech diacritics.
 import json
 import logging
 from collections.abc import Sequence
@@ -60,77 +60,9 @@ async def dashboard_get(
 ) -> HTMLResponse:
     """Render the dashboard and optional saved portfolio analysis."""
     if current_user is None:
-        context: dict[str, Any] = {
-            "current_user": None,
-            "current_user_email": None,
-            "username": None,
-            "total_value_formatted": "10 000 000,00",
-            "month_change_pct": "3.8",
-            "positions_count": "5+",
-            "sector_count": "5",
-            "region_count": "1",
-            "daily_change_pct": "+1.1 %",
-            "positions": [
-                {
-                    "ticker": "AAPL",
-                    "name": "Apple Inc.",
-                    "value_formatted": "4 000 000,00",
-                    "weight": 40,
-                },
-                {
-                    "ticker": "AXP",
-                    "name": "American Express",
-                    "value_formatted": "1 200 000,00",
-                    "weight": 12,
-                },
-                {
-                    "ticker": "BAC",
-                    "name": "Bank of America",
-                    "value_formatted": "1 000 000,00",
-                    "weight": 10,
-                },
-                {
-                    "ticker": "KO",
-                    "name": "The Coca-Cola Co.",
-                    "value_formatted": "800 000,00",
-                    "weight": 8,
-                },
-                {
-                    "ticker": "OXY",
-                    "name": "Occidental Petroleum",
-                    "value_formatted": "600 000,00",
-                    "weight": 6,
-                },
-                {
-                    "ticker": "CASH",
-                    "name": "Hotovost a statni dluhopisy",
-                    "value_formatted": "2 400 000,00",
-                    "weight": 24,
-                },
-            ],
-            "top_weights": [
-                {"label": "AAPL", "value": 40, "color": "#475569"},
-                {"label": "AXP", "value": 12, "color": "#6b7280"},
-                {"label": "BAC", "value": 10, "color": "#0f766e"},
-                {"label": "KO", "value": 8, "color": "#b45309"},
-                {"label": "OXY", "value": 6, "color": "#374151"},
-            ],
-            "chart_data_json": json.dumps(
-                {
-                    "labels": ["AAPL", "AXP", "BAC", "KO", "OXY", "CASH"],
-                    "weights": [40, 12, 10, 8, 6, 24],
-                }
-            ),
-            "ai_analysis_markdown": (
-                "Berkshire Hathaway demo portfolio analysis: "
-                "highly concentrated in stable cash-generating "
-                "giants with a strong cash reserve."
-            ),
-            "portfolios": [],
-            "selected_portfolio_id": None,
-            "error": None,
-        }
-        return templates.TemplateResponse(request, "dashboard.html", context)
+        return templates.TemplateResponse(
+            request, "dashboard.html", _get_guest_context()
+        )
 
     context = _base_context(current_user, portfolio_id)
     user_id = get_persisted_user_id(current_user)
@@ -140,6 +72,7 @@ async def dashboard_get(
         if portfolio_id is None and portfolios:
             context["selected_portfolio_id"] = portfolios[0].id
         context["portfolios"] = portfolios
+
         selected = _select_portfolios(session, user_id, portfolio_id, portfolios)
         imported = _to_imported_portfolios(selected)
         if imported:
@@ -162,14 +95,102 @@ async def dashboard_get(
 
 def _base_context(user: User | None, portfolio_id: int | None) -> dict[str, Any]:
     return {
+        "current_user": user,
+        "current_user_email": user.email if user else None,
         "valued_portfolio": None,
-        "total_value_formatted": None,
-        "chart_data_json": None,
+        "total_value_formatted": "0,00",
+        "positions_count": "0",
+        "sector_count": "0",
+        "region_count": "0",
+        "daily_change_pct": "0,0 %",
+        "month_change_pct": "0,0",
+        "positions": [],
+        "top_weights": [],
+        "chart_data_json": json.dumps({"labels": [], "weights": []}),
+        "sector_allocation_json": json.dumps([]),
+        "geo_allocation_json": json.dumps([]),
+        "has_data": False,
         "error": None,
         "username": user.email if user else None,
-        "ai_analysis_markdown": "",
+        "ai_analysis_markdown": "Nahrajte CSV data pro analyzu.",
         "portfolios": [],
         "selected_portfolio_id": portfolio_id,
+    }
+
+
+def _get_guest_context() -> dict[str, Any]:
+    return {
+        "current_user": None,
+        "current_user_email": "Demo Ucet",
+        "username": None,
+        "total_value_formatted": "10 000 000,00",
+        "month_change_pct": "3.8",
+        "positions_count": "5+",
+        "sector_count": "5",
+        "region_count": "1",
+        "daily_change_pct": "+1.1 %",
+        "has_data": True,
+        "positions": [
+            {
+                "ticker": "AAPL",
+                "name": "Apple Inc.",
+                "value_formatted": "4 000 000,00",
+                "weight": 40,
+            },
+            {
+                "ticker": "AXP",
+                "name": "American Express",
+                "value_formatted": "1 200 000,00",
+                "weight": 12,
+            },
+            {
+                "ticker": "BAC",
+                "name": "Bank of America",
+                "value_formatted": "1 000 000,00",
+                "weight": 10,
+            },
+            {
+                "ticker": "KO",
+                "name": "The Coca-Cola Co.",
+                "value_formatted": "800 000,00",
+                "weight": 8,
+            },
+            {
+                "ticker": "OXY",
+                "name": "Occidental Petroleum",
+                "value_formatted": "600 000,00",
+                "weight": 6,
+            },
+        ],
+        "top_weights": [
+            {"label": "AAPL", "value": 40, "color": "#475569"},
+            {"label": "AXP", "value": 12, "color": "#6b7280"},
+            {"label": "BAC", "value": 10, "color": "#0f766e"},
+            {"label": "KO", "value": 8, "color": "#b45309"},
+            {"label": "OXY", "value": 6, "color": "#374151"},
+        ],
+        "chart_data_json": json.dumps(
+            {
+                "labels": ["AAPL", "AXP", "BAC", "KO", "OXY"],
+                "weights": [40, 12, 10, 8, 6],
+            }
+        ),
+        "sector_allocation_json": json.dumps(
+            [
+                {"label": "IT", "value": 40},
+                {"label": "Finance", "value": 22},
+                {"label": "Spotrebni", "value": 8},
+                {"label": "Energetika", "value": 6},
+                {"label": "Ostatni", "value": 24},
+            ]
+        ),
+        "geo_allocation_json": json.dumps(
+            [{"label": "USA", "value": 90}, {"label": "Ostatni", "value": 10}]
+        ),
+        "ai_analysis_markdown": "Demo portfolio Berkshire Hathaway analysis.",
+        "portfolios": [],
+        "selected_portfolio_id": None,
+        "error": None,
     }
 
 
@@ -181,27 +202,27 @@ def _select_portfolios(
 ) -> list[Portfolio]:
     if portfolio_id is None:
         return list(portfolios)
-    portfolio = get_portfolio_for_user(session, portfolio_id, user_id)
-    return [portfolio] if portfolio is not None else []
+    p = get_portfolio_for_user(session, portfolio_id, user_id)
+    return [p] if p is not None else []
 
 
 def _to_imported_portfolios(portfolios: Sequence[Portfolio]) -> list[ImportedPortfolio]:
     imported: list[ImportedPortfolio] = []
-    for portfolio in portfolios:
-        if portfolio.positions:
+    for p in portfolios:
+        if p.positions:
             imported.append(
                 ImportedPortfolio(
-                    broker_name=portfolio.name,
+                    broker_name=p.name,
                     imported_at=datetime.now(),
                     positions=[
                         StockPosition(
-                            ticker=position.ticker,
-                            name=position.asset_name,
-                            quantity=position.quantity,
-                            average_price=position.unit_cost,
-                            currency=Currency(position.currency),
+                            ticker=pos.ticker,
+                            name=pos.asset_name,
+                            quantity=pos.quantity,
+                            average_price=pos.unit_cost,
+                            currency=Currency(pos.currency),
                         )
-                        for position in portfolio.positions
+                        for pos in p.positions
                     ],
                 )
             )
@@ -241,12 +262,15 @@ def _valuation_context(valued: ValuedPortfolio) -> dict[str, Any]:
         "positions_count": str(len(valued.positions)),
         "positions": formatted_positions,
         "top_weights": top_weights,
+        "has_data": True,
         "chart_data_json": json.dumps(
             {
-                "labels": [position.ticker for position in valued.positions],
-                "weights": [
-                    float(position.weight * 100) for position in valued.positions
-                ],
+                "labels": [p.ticker for p in valued.positions],
+                "weights": [float(p.weight * 100) for p in valued.positions],
             }
         ),
+        # Temporary mock for Milestone 2, before Milestone 6
+        # including real yfinance sectors/countries
+        "sector_allocation_json": json.dumps([{"label": "Akcie", "value": 100}]),
+        "geo_allocation_json": json.dumps([{"label": "Globalni", "value": 100}]),
     }

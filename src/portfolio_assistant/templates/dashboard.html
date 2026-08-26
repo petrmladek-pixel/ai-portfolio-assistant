@@ -1,24 +1,18 @@
 {% extends 'layouts/base.html' %}
-
 {% block title %}Dashboard | AI Portfolio Assistant{% endblock %}
-
 {% block body %}
 <div class="lg:flex min-h-screen">
   <!-- ================= MOBILE TOP BAR ================= -->
   <div class="flex items-center justify-between border-b border-border bg-card px-4 py-3 lg:hidden w-full">
-    <span class="text-sm font-bold uppercase tracking-wider text-foreground">
-      AI Portfolio Assistant
-    </span>
-    <button type="button" id="open-menu" aria-label="Otevřít menu" class="rounded-sm border border-border p-2 text-foreground">
+    <span class="text-sm font-bold uppercase tracking-wider text-foreground">AI Portfolio Assistant</span>
+    <button type="button" id="open-menu" aria-label="Open menu" class="rounded-sm border border-border p-2 text-foreground">
       <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="4" x2="20" y1="12" y2="12"/><line x1="4" x2="20" y1="6" y2="6"/><line x1="4" x2="20" y1="18" y2="18"/></svg>
     </button>
   </div>
 
   <!-- ================= DESKTOP STICKY SIDEBAR ================= -->
   <aside class="sticky top-0 hidden h-screen w-80 shrink-0 border-r border-border bg-sidebar lg:block">
-    <div class="sidebar-body flex h-full flex-col">
-      {% include 'components/sidebar.html' %}
-    </div>
+    <div class="sidebar-body flex h-full flex-col">{% include 'components/sidebar.html' %}</div>
   </aside>
 
   <!-- ================= MOBILE DRAWER ================= -->
@@ -26,71 +20,65 @@
     <div id="drawer-backdrop" class="absolute inset-0 bg-foreground/20"></div>
     <div class="absolute inset-y-0 left-0 w-80 max-w-[85%] border-r border-border bg-sidebar">
       <div class="flex justify-end p-3">
-        <button type="button" id="close-menu" aria-label="Zavřít menu" class="rounded-sm border border-border p-2 text-foreground">
+        <button type="button" id="close-menu" aria-label="Close menu" class="rounded-sm border border-border p-2 text-foreground">
           <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg>
         </button>
       </div>
-      <div class="sidebar-body h-[calc(100%-3.25rem)]">
-        {% include 'components/sidebar.html' %}
-      </div>
+      <div class="sidebar-body h-[calc(100%-3.25rem)]">{% include 'components/sidebar.html' %}</div>
     </div>
   </div>
 
   <!-- ================= MAIN CONTENT ================= -->
   <main class="flex-1 px-4 py-6 sm:px-8 sm:py-10 lg:px-12">
     <div class="mx-auto max-w-5xl">
-      <!-- Hero Header & Stats -->
-      {% if error %}
-      <div class="mb-4 rounded-sm border border-red-300 bg-red-50 p-4 text-sm text-red-800">
-        {{ error }}
-      </div>
-      {% endif %}
+      {% if error %}<div class="mb-4 rounded-sm border border-red-300 bg-red-50 p-4 text-sm text-red-800">{{ error }}</div>{% endif %}
       <section>
         <div class="flex flex-wrap items-baseline justify-between gap-2">
           <h2 class="text-2xl font-bold tracking-tight text-foreground text-balance">
             Ahoj, {{ username if username and username != 'None' else 'Warrene' }}
           </h2>
           <span class="flex items-center gap-2 text-xs text-muted-foreground">
-            <span class="size-1.5 rounded-full bg-gain" aria-hidden="true"></span>
-            Aktualizováno před 5 minutami
+            <span class="size-1.5 rounded-full bg-gain" aria-hidden="true"></span>Aktualizováno před 5 minutami
           </span>
         </div>
         {% include 'components/stats_cards.html' %}
       </section>
 
-      <!-- Charts & Positions Grid -->
+      <!-- Charts & Positions Grid (Conditional Rendering based on has_data) -->
       <div class="mt-4 grid gap-4 lg:mt-6 lg:gap-6">
-        {% include 'components/charts_section.html' %}
+        {% if has_data %}
+          {% include 'components/charts_section.html' %}
 
-        <!-- Bottom row: Benchmark & Chat -->
-        <div class="grid gap-4 lg:gap-6 xl:grid-cols-2">
-          <!-- Benchmark Chart -->
-          <section class="rounded-sm border border-border bg-card p-6">
-            <div class="mb-6 flex flex-wrap items-center justify-between gap-3">
-              <h3 class="text-[11px] font-semibold uppercase tracking-wider text-foreground">
-                Vývoj portfolia vs. Benchmark
-              </h3>
-              <div class="flex items-center gap-5 text-xs">
-                <span class="flex items-center gap-2 text-foreground">
-                  <span class="h-0.5 w-5 bg-primary" aria-hidden="true"></span>
-                  Moje portfolio
-                </span>
-                <span class="flex items-center gap-2 text-muted-foreground">
-                  <span class="h-0 w-5 border-t border-dashed border-muted-foreground" aria-hidden="true"></span>
-                  S&amp;P 500
-                </span>
+          <div class="grid gap-4 lg:gap-6 xl:grid-cols-2">
+            <!-- Benchmark Chart -->
+            <section class="rounded-sm border border-border bg-card p-6">
+              <div class="mb-6 flex flex-wrap items-center justify-between gap-3">
+                <h3 class="text-[11px] font-semibold uppercase tracking-wider text-foreground">Vývoj portfolia vs. Benchmark</h3>
+                <div class="flex items-center gap-5 text-xs">
+                  <span class="flex items-center gap-2 text-foreground"><span class="h-0.5 w-5 bg-primary" aria-hidden="true"></span>Moje portfolio</span>
+                  <span class="flex items-center gap-2 text-muted-foreground"><span class="h-0 w-5 border-t border-dashed border-muted-foreground" aria-hidden="true"></span>S&amp;P 500</span>
+                </div>
               </div>
+              <div id="benchmark-chart"></div>
+              <div id="benchmark-months" class="mt-3 flex justify-between font-mono text-[11px] text-muted-foreground"></div>
+            </section>
+
+            <!-- AI Chat Widget -->
+            {% include 'components/chat_widget.html' %}
+          </div>
+          {% include 'components/positions_table.html' %}
+        {% else %}
+          <!-- ================= EMPTY STATE (For fresh logged-in users with 0 positions) ================= -->
+          <div class="rounded-sm border border-border bg-card p-10 text-center flex flex-col items-center justify-center max-w-2xl mx-auto space-y-4 my-10">
+            <div class="size-12 rounded-full bg-neutral-100 flex items-center justify-center text-foreground">
+              <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" x2="12" y1="3" y2="15"/></svg>
             </div>
-            <div id="benchmark-chart"></div>
-            <div id="benchmark-months" class="mt-3 flex justify-between font-mono text-[11px] text-muted-foreground"></div>
-          </section>
-
-          <!-- AI Chat Widget -->
-          {% include 'components/chat_widget.html' %}
-        </div>
-
-        <!-- Table of Positions -->
-        {% include 'components/positions_table.html' %}
+            <h3 class="text-lg font-bold tracking-tight text-foreground">Vítejte ve svém novém portfoliu!</h3>
+            <p class="text-sm text-muted-foreground leading-relaxed">
+              Zatím zde nemáte žádná data. Chcete-li spustit automatickou analýzu a odemknout plnou sílu AI Copilota, nahrajte své první CSV s investičními pozicemi (např. export z DEGIRO nebo Fio e-Brokeru) v levém panelu.
+            </p>
+          </div>
+        {% endif %}
       </div>
     </div>
   </main>
@@ -98,23 +86,23 @@
 
 <script>
   // ========================= PREMIUM MUTED COLOR PALETTE =========================
-  // Slate Blue, Cool Gray, Sage Emerald, Muted Amber, Medium Charcoal, Light Neutral
   const chartColors = ['#475569', '#6b7280', '#0f766e', '#b45309', '#374151', '#d1d5db'];
 
-  // Donut Configs
-  const sectorAllocation = [
-    { label: 'IT', value: 35 }, { label: 'Finance', value: 22 }, { label: 'Zdravotnictví', value: 16 },
-    { label: 'Spotřební', value: 12 }, { label: 'Energetika', value: 8 }, { label: 'Ostatní', value: 7 }
-  ];
-  const geoAllocation = [
-    { label: 'USA', value: 52 }, { label: 'EU', value: 24 }, { label: 'Asie', value: 11 },
-    { label: 'Rozvíjející se', value: 8 }, { label: 'Ostatní', value: 5 }
-  ];
+  // ========================= DYNAMIC DATA FROM BACKEND =========================
+  // Safely parse JSON strings to avoid IDE/VS Code syntax warnings
+  const sectorAllocation = JSON.parse('{{ sector_allocation_json | safe }}' || '[]');
+  const geoAllocation = JSON.parse('{{ geo_allocation_json | safe }}' || '[]');
 
-  // SVG Donut Generator (Vylepšen o plynulé rozložení s min-w-0 a zalamováním)
+  // Parse boolean flag from Jinja2 safely using standard JavaScript literal format
+  const hasData = JSON.parse('{{ "true" if has_data else "false" }}' || 'false');
+
+  // SVG Donut Generator
   const SIZE = 168, STROKE = 22, RADIUS = (SIZE - STROKE) / 2, CIRCUMFERENCE = 2 * Math.PI * RADIUS, GAP = 1.2;
 
   function renderDonut(targetId, slices, centerValue, centerLabel) {
+    const targetElement = document.getElementById(targetId);
+    if (!targetElement) return; // Defensive check: If element is not in DOM, bypass rendering
+
     let offset = 0;
     const circles = slices.map((slice, i) => {
       const dash = (Math.max(slice.value - GAP, 0) / 100) * CIRCUMFERENCE;
@@ -133,7 +121,7 @@
         <span class="font-mono text-muted-foreground whitespace-nowrap">${slice.value}&nbsp;%</span>
       </li>`).join('');
 
-    document.getElementById(targetId).innerHTML = `
+    targetElement.innerHTML = `
       <div class="flex flex-col sm:flex-row xl:flex-col min-[1400px]:flex-row items-center gap-5 xl:gap-6 w-full min-w-0">
         <svg width="${SIZE}" height="${SIZE}" viewBox="0 0 ${SIZE} ${SIZE}" class="shrink-0 -rotate-90" role="img" aria-label="Donut Chart">${circles}</svg>
         <div class="flex-1 w-full min-w-0">
@@ -146,8 +134,11 @@
       </div>`;
   }
 
-  renderDonut('donut-sector', sectorAllocation, '5+', 'Sektorů');
-  renderDonut('donut-geo', geoAllocation, '5', 'Regionů');
+  // Render donut charts ONLY if data exists
+  if (hasData) {
+    renderDonut('donut-sector', sectorAllocation, '{{ sector_count | default("5+") }}', 'Sektorů');
+    renderDonut('donut-geo', geoAllocation, '{{ region_count | default("5") }}', 'Regionů');
+  }
 
   // ================= MOBILE DRAWER TRIGGER =================
   const drawer = document.getElementById('drawer');
@@ -174,18 +165,27 @@
     }).join(' ');
   }
 
-  const gridlines = [0, 0.25, 0.5, 0.75, 1].map(t => {
-    const y = PAD_Y + t * (H - PAD_Y * 2);
-    return `<line x1="${PAD_X}" x2="${W - PAD_X}" y1="${y}" y2="${y}" stroke="#e5e5e5" stroke-width="1" />`;
-  }).join('');
+  // Render the benchmark chart ONLY if data exists and elements are available
+  if (hasData) {
+    const gridlines = [0, 0.25, 0.5, 0.75, 1].map(t => {
+      const y = PAD_Y + t * (H - PAD_Y * 2);
+      return `<line x1="${PAD_X}" x2="${W - PAD_X}" y1="${y}" y2="${y}" stroke="#e5e5e5" stroke-width="1" />`;
+    }).join('');
 
-  document.getElementById('benchmark-chart').innerHTML = `
-    <svg viewBox="0 0 ${W} ${H}" class="h-56 w-full" preserveAspectRatio="none">
-      ${gridlines}
-      <path d="${buildPath(benchmarkSeries)}" fill="none" stroke="#8a8a8a" stroke-width="1.5" stroke-dasharray="5 5" vector-effect="non-scaling-stroke" />
-      <path d="${buildPath(portfolioSeries)}" fill="none" stroke="#343434" stroke-width="2" stroke-linejoin="round" stroke-linecap="round" vector-effect="non-scaling-stroke" />
-    </svg>`;
-  document.getElementById('benchmark-months').innerHTML = benchmarkMonths.map(m => `<span>${m}</span>`).join('');
+    const benchmarkChartElement = document.getElementById('benchmark-chart');
+    if (benchmarkChartElement) {
+      benchmarkChartElement.innerHTML = `
+        <svg viewBox="0 0 ${W} ${H}" class="h-56 w-full" preserveAspectRatio="none">
+          ${gridlines}
+          <path d="${buildPath(benchmarkSeries)}" fill="none" stroke="#8a8a8a" stroke-width="1.5" stroke-dasharray="5 5" vector-effect="non-scaling-stroke" />
+          <path d="${buildPath(portfolioSeries)}" fill="none" stroke="#343434" stroke-width="2" stroke-linejoin="round" stroke-linecap="round" vector-effect="non-scaling-stroke" />
+        </svg>`;
+    }
+    const benchmarkMonthsElement = document.getElementById('benchmark-months');
+    if (benchmarkMonthsElement) {
+      benchmarkMonthsElement.innerHTML = benchmarkMonths.map(m => `<span>${m}</span>`).join('');
+    }
+  }
 
   // ================= ACTIVE CHAT CLIENT LOGIC =================
   const chatLog = document.getElementById('chat-log');
