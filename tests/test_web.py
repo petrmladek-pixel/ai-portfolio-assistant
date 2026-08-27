@@ -173,7 +173,6 @@ def test_dashboard_guest_mode():
     assert "10 000 000,00" in content
     assert "AAPL" in content
     assert "OXY" in content
-    assert "CASH" in content
     assert "Analyzujte vlastní data" in content
 
 

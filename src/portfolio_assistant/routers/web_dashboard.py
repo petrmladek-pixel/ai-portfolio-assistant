@@ -47,6 +47,24 @@ logger = logging.getLogger(__name__)
 router = APIRouter()
 
 
+# Define safe fallback context to prevent Jinja2 rendering crashes on empty data
+EMPTY_DASHBOARD_CONTEXT: dict[str, Any] = {
+    "valued_portfolio": None,
+    "total_value_formatted": "0,00",
+    "positions_count": "0",
+    "sector_count": "0",
+    "region_count": "0",
+    "daily_change_pct": "0,0 %",
+    "month_change_pct": "0,0",
+    "positions": [],
+    "top_weights": [],
+    "chart_data_json": json.dumps({"labels": [], "weights": []}),
+    "sector_allocation_json": json.dumps([]),
+    "geo_allocation_json": json.dumps([]),
+    "ai_analysis_markdown": "Zatim zadna data k analyze.",
+}
+
+
 @router.get("/", response_class=HTMLResponse)
 async def dashboard_get(
     request: Request,
@@ -64,74 +82,69 @@ async def dashboard_get(
             request, "dashboard.html", _get_guest_context()
         )
 
-    # Convert portfolio_id to int if it's a string representation of a number
+    # 1. Clean input normalization (Look Before You Leap)
+    # Convert and normalize portfolio_id strictly to: int | Literal["all"] | None
+    norm_id: int | str | None = None
     if isinstance(portfolio_id, str):
-        try:
-            portfolio_id = int(portfolio_id)
-        except ValueError:
-            portfolio_id = None
-    context = _base_context(current_user, portfolio_id)
+        val_lower = portfolio_id.lower()
+        if val_lower == "all":
+            norm_id = "all"
+        elif val_lower.isdigit():
+            norm_id = int(val_lower)
+    elif isinstance(portfolio_id, int):
+        norm_id = portfolio_id
+
+    # 2. Initialize context with safe empty defaults immediately
+    context = _base_context(current_user, norm_id)
+    context.update(EMPTY_DASHBOARD_CONTEXT)
+
     user_id = get_persisted_user_id(current_user)
+
     try:
         portfolio_service.ensure_default_portfolio(session, user_id)
         portfolios = get_portfolios_for_user(session, user_id)
-
-        if portfolio_id is None and portfolios:
-            context["selected_portfolio_id"] = portfolios[0].id
-        elif portfolio_id is not None and str(portfolio_id).lower() == "all":
-            context["selected_portfolio_id"] = "all"
-        elif portfolio_id is not None:
-            try:
-                context["selected_portfolio_id"] = int(portfolio_id)
-            except (TypeError, ValueError):
-                context["selected_portfolio_id"] = (
-                    portfolios[0].id if portfolios else None
-                )
-        else:
-            context["selected_portfolio_id"] = portfolios[0].id if portfolios else None
-
         context["portfolios"] = portfolios
         context["has_data"] = True
 
-        selected = _select_portfolios(session, user_id, portfolio_id, portfolios)
+        # 3. Determine selected portfolio ID with simple, type-safe logic
+        selected_id: int | str | None = None
+        if norm_id == "all":
+            selected_id = "all"
+        elif isinstance(norm_id, int) and any(p.id == norm_id for p in portfolios):
+            selected_id = norm_id
+        else:
+            selected_id = portfolios[0].id if portfolios else None
+
+        context["selected_portfolio_id"] = selected_id
+
+        # 4. Fetch, merge, and value positions
+        selected = _select_portfolios(session, user_id, norm_id, portfolios)
         imported = _to_imported_portfolios(selected)
+
         if imported:
             merged = _merge_portfolios(imported, portfolio_merger)
             valued = await valuation_service.value_portfolio_async(
                 merged, target_currency=Currency.CZK
             )
             context.update(_valuation_context(valued))
+
+            # NOTE FOR PRODUCTION: Awaiting LLM API on page load is slow.
+            # In next milestone, load this asynchronously via an API route.
             context["ai_analysis_markdown"] = await gemini_service.analyze_portfolio(
                 valued.to_anonymized()
             )
-        else:
-            context.update(
-                {
-                    "valued_portfolio": None,
-                    "total_value_formatted": "0,00",
-                    "positions_count": "0",
-                    "sector_count": "0",
-                    "region_count": "0",
-                    "daily_change_pct": "0,0 %",
-                    "month_change_pct": "0,0",
-                    "positions": [],
-                    "top_weights": [],
-                    "chart_data_json": json.dumps({"labels": [], "weights": []}),
-                    "sector_allocation_json": json.dumps([]),
-                    "geo_allocation_json": json.dumps([]),
-                    "ai_analysis_markdown": "Zatim zadna data k analyze.",
-                }
-            )
+
     except (PersistenceError, SQLAlchemyError):
         logger.exception("Database error while loading dashboard")
         context["error"] = "Database persistence failed."
     except Exception:
         logger.exception("Unexpected error while loading dashboard")
         context["error"] = "An unexpected error occurred."
+
     return templates.TemplateResponse(request, "dashboard.html", context)
 
 
-def _base_context(user: User | None, portfolio_id: int | None) -> dict[str, Any]:
+def _base_context(user: User | None, portfolio_id: str | int | None) -> dict[str, Any]:
     return {
         "current_user": user,
         "current_user_email": user.email if user else None,

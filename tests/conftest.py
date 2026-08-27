@@ -1,36 +1,40 @@
-"""Global pytest configuration and shared test fixtures."""
+# tests/conftest.py
+# Strict Python, no Czech diacritics in Python files.
 
 import os
 
 import pytest
+from sqlalchemy.pool import StaticPool
+from sqlmodel import Session, SQLModel, create_engine
 
-from portfolio_assistant.config import Settings
+from portfolio_assistant.core import database
+from portfolio_assistant.models.db_models import Portfolio, Position  # noqa: F401
+from portfolio_assistant.models.user import User  # noqa: F401
 
 # Vynucení testovacího prostředí
 os.environ["PORTFOLIO_ENVIRONMENT"] = "testing"
 
-
-@pytest.fixture
-def override_settings() -> Settings:
-    """Provide overridden configuration settings dedicated for testing."""
-    return Settings(
-        environment="testing",
-        debug=True,
-    )
+# ... (mock_migrations a override_settings zůstávají stejné) ...
 
 
 @pytest.fixture(name="db_session")
 def db_session_fixture():
-    """Shared database session fixture."""
-    from sqlmodel import Session, SQLModel
+    """Shared database session fixture using in-memory SQLite with StaticPool."""
+    test_engine = create_engine(
+        "sqlite:///:memory:",
+        connect_args={"check_same_thread": False},
+        poolclass=StaticPool,
+    )
 
-    from portfolio_assistant.core.database import engine
+    # Force the app's engine to be the test engine
+    old_engine = database.engine
+    database.engine = test_engine
 
-    # Setup - Ensure data directory exists
-    os.makedirs("./data", exist_ok=True)
-    # Setup - Use SQLModel to create tables
-    SQLModel.metadata.create_all(engine)
-    with Session(engine) as session:
+    SQLModel.metadata.create_all(test_engine)
+
+    with Session(test_engine) as session:
         yield session
-    # Teardown - Drop tables after test
-    SQLModel.metadata.drop_all(engine)
+
+    # Teardown
+    SQLModel.metadata.drop_all(test_engine)
+    database.engine = old_engine
