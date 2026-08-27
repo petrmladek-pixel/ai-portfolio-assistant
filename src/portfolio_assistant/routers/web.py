@@ -100,6 +100,24 @@ async def create_portfolio_web(
     return RedirectResponse("/", status_code=303)
 
 
+@router.post("/portfolio/create")
+async def create_portfolio_endpoint(
+    name: Annotated[str, Form()],
+    current_user: Annotated[User, Depends(get_current_user)],
+    session: Annotated[Session, Depends(get_db_session)],
+    portfolio_service: Annotated[PortfolioService, Depends(get_portfolio_service)],
+) -> RedirectResponse:
+    """Create a portfolio from the web interface."""
+    user_id = get_persisted_user_id(current_user)
+    try:
+        portfolio_service.create(session, name.strip(), "DEGIRO", user_id)
+    except PersistenceError:
+        raise HTTPException(
+            status_code=500, detail="Failed to create portfolio"
+        ) from None
+    return RedirectResponse("/", status_code=303)
+
+
 @router.get("/login", response_class=HTMLResponse, include_in_schema=False)
 async def login_page(request: Request) -> HTMLResponse:
     """Render the login page."""

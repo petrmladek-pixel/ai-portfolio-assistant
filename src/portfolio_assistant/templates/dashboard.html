@@ -103,6 +103,29 @@
     const targetElement = document.getElementById(targetId);
     if (!targetElement) return; // Defensive check: If element is not in DOM, bypass rendering
 
+    const isEmpty = !slices || slices.length === 0 || slices.every(s => s.value === 0);
+
+    if (isEmpty) {
+      targetElement.innerHTML = `
+        <div class="flex flex-col sm:flex-row xl:flex-col min-[1400px]:flex-row items-center gap-5 xl:gap-6 w-full min-w-0">
+          <div class="relative size-[168px] shrink-0 flex items-center justify-center">
+            <svg width="${SIZE}" height="${SIZE}" viewBox="0 0 ${SIZE} ${SIZE}" class="absolute inset-0 shrink-0 -rotate-90" role="img" aria-label="Donut Chart Empty">
+              <circle cx="${SIZE/2}" cy="${SIZE/2}" r="${RADIUS}" fill="none" stroke="#e5e5e5" stroke-width="${STROKE}" stroke-dasharray="6 6" vector-effect="non-scaling-stroke" />
+            </svg>
+            <div class="absolute inset-0 flex items-center justify-center p-2 text-center pointer-events-none">
+              <span class="text-[11px] font-medium text-muted-foreground leading-snug">Zatím žádná data k analýze</span>
+            </div>
+          </div>
+          <div class="flex-1 w-full min-w-0 text-center sm:text-left xl:text-center min-[1400px]:text-left">
+            <div class="mb-3 border-b border-border pb-2">
+              <p class="font-mono text-xl font-semibold tracking-tight text-foreground">${centerValue}</p>
+              <p class="mt-0.5 text-[10px] uppercase tracking-wider text-muted-foreground">${centerLabel}</p>
+            </div>
+          </div>
+        </div>`;
+      return;
+    }
+
     let offset = 0;
     const circles = slices.map((slice, i) => {
       const dash = (Math.max(slice.value - GAP, 0) / 100) * CIRCUMFERENCE;
@@ -114,7 +137,7 @@
 
     const legend = slices.map((slice, i) => `
       <li class="flex items-center justify-between gap-3 text-xs sm:text-sm min-w-0">
-        <span class="flex items-center gap-2 truncate min-w-0">
+        <span class="flex items-center gap-2 min-w-0">
           <span class="size-2.5 shrink-0" style="background-color:${chartColors[i % chartColors.length]}" aria-hidden="true"></span>
           <span class="text-foreground truncate">${slice.label}</span>
         </span>
@@ -186,6 +209,27 @@
       benchmarkMonthsElement.innerHTML = benchmarkMonths.map(m => `<span>${m}</span>`).join('');
     }
   }
+
+  // ================= FILE SELECTION FEEDBACK =================
+  document.querySelectorAll('.file-input').forEach(input => {
+    input.addEventListener('change', (e) => {
+      const file = e.target.files[0];
+      const dropzone = e.target.closest('.dropzone');
+      if (!dropzone) return;
+      const textSpan = dropzone.querySelector('.dropzone-text');
+      if (!textSpan) return;
+
+      if (file) {
+        textSpan.textContent = `Vybráno: ${file.name}`;
+        textSpan.className = 'dropzone-text text-xs font-medium text-gain';
+        dropzone.classList.add('border-gain', 'bg-gain/5');
+      } else {
+        textSpan.innerHTML = 'Přetáhněte CSV nebo <span class="font-medium text-foreground underline underline-offset-2">vyberte soubor</span>';
+        textSpan.className = 'dropzone-text text-xs text-muted-foreground';
+        dropzone.classList.remove('border-gain', 'bg-gain/5');
+      }
+    });
+  });
 
   // ================= ACTIVE CHAT CLIENT LOGIC =================
   const chatLog = document.getElementById('chat-log');

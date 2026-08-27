@@ -55,7 +55,7 @@ async def dashboard_get(
     portfolio_merger: Annotated[PortfolioMerger, Depends(get_portfolio_merger)],
     portfolio_service: Annotated[PortfolioService, Depends(get_portfolio_service)],
     session: Annotated[Session, Depends(get_db_session)],
-    portfolio_id: int | None = None,
+    portfolio_id: str | int | None = None,
     current_user: Annotated[User | None, Depends(get_optional_current_user)] = None,
 ) -> HTMLResponse:
     """Render the dashboard and optional saved portfolio analysis."""
@@ -64,14 +64,34 @@ async def dashboard_get(
             request, "dashboard.html", _get_guest_context()
         )
 
+    # Convert portfolio_id to int if it's a string representation of a number
+    if isinstance(portfolio_id, str):
+        try:
+            portfolio_id = int(portfolio_id)
+        except ValueError:
+            portfolio_id = None
     context = _base_context(current_user, portfolio_id)
     user_id = get_persisted_user_id(current_user)
     try:
         portfolio_service.ensure_default_portfolio(session, user_id)
         portfolios = get_portfolios_for_user(session, user_id)
+
         if portfolio_id is None and portfolios:
             context["selected_portfolio_id"] = portfolios[0].id
+        elif portfolio_id is not None and str(portfolio_id).lower() == "all":
+            context["selected_portfolio_id"] = "all"
+        elif portfolio_id is not None:
+            try:
+                context["selected_portfolio_id"] = int(portfolio_id)
+            except (TypeError, ValueError):
+                context["selected_portfolio_id"] = (
+                    portfolios[0].id if portfolios else None
+                )
+        else:
+            context["selected_portfolio_id"] = portfolios[0].id if portfolios else None
+
         context["portfolios"] = portfolios
+        context["has_data"] = True
 
         selected = _select_portfolios(session, user_id, portfolio_id, portfolios)
         imported = _to_imported_portfolios(selected)
@@ -83,6 +103,24 @@ async def dashboard_get(
             context.update(_valuation_context(valued))
             context["ai_analysis_markdown"] = await gemini_service.analyze_portfolio(
                 valued.to_anonymized()
+            )
+        else:
+            context.update(
+                {
+                    "valued_portfolio": None,
+                    "total_value_formatted": "0,00",
+                    "positions_count": "0",
+                    "sector_count": "0",
+                    "region_count": "0",
+                    "daily_change_pct": "0,0 %",
+                    "month_change_pct": "0,0",
+                    "positions": [],
+                    "top_weights": [],
+                    "chart_data_json": json.dumps({"labels": [], "weights": []}),
+                    "sector_allocation_json": json.dumps([]),
+                    "geo_allocation_json": json.dumps([]),
+                    "ai_analysis_markdown": "Zatim zadna data k analyze.",
+                }
             )
     except (PersistenceError, SQLAlchemyError):
         logger.exception("Database error while loading dashboard")
@@ -197,12 +235,18 @@ def _get_guest_context() -> dict[str, Any]:
 def _select_portfolios(
     session: Session,
     user_id: int,
-    portfolio_id: int | None,
+    portfolio_id: str | int | None,
     portfolios: Sequence[Portfolio],
 ) -> list[Portfolio]:
     if portfolio_id is None:
         return list(portfolios)
-    p = get_portfolio_for_user(session, portfolio_id, user_id)
+    if str(portfolio_id).lower() == "all":
+        return list(portfolios)
+    try:
+        pid = int(portfolio_id)
+    except (TypeError, ValueError):
+        return list(portfolios)
+    p = get_portfolio_for_user(session, pid, user_id)
     return [p] if p is not None else []
 
 
