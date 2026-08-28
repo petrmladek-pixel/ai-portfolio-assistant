@@ -25,6 +25,14 @@ class Settings(BaseSettings):
     )
     debug: bool = Field(default=False, description="Enable debug mode")
     log_level: str = Field(default="INFO", description="Logging output level")
+    enable_demo_data: bool = Field(
+        default=False,
+        description="Enable automatic database seeding on startup",
+    )
+    demo_user_email: str = Field(
+        default="demo@portfolio-assistant.ai",
+        description="Email address used for demo seeding",
+    )
 
     # Database and keys
     database_url: str = Field(

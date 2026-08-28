@@ -4,9 +4,24 @@ import pytest
 from sqlalchemy.pool import StaticPool
 from sqlmodel import Session, SQLModel, create_engine
 
+from portfolio_assistant.config import Settings
 from portfolio_assistant.core import database
 
+# Explicitly import all db models so SQLModel registers them before create_all
+from portfolio_assistant.models.db_models import Portfolio, Position  # noqa: F401
+from portfolio_assistant.models.user import User  # noqa: F401
+
 os.environ["PORTFOLIO_ENVIRONMENT"] = "testing"
+
+
+@pytest.fixture
+def override_settings() -> Settings:
+    """Provide overridden configuration settings dedicated for testing."""
+    return Settings(
+        environment="testing",
+        debug=True,
+        enable_demo_data=False,
+    )
 
 
 @pytest.fixture(name="db_session")
@@ -19,9 +34,6 @@ def db_session_fixture():
     )
     old_engine = database.engine
     database.engine = test_engine
-
-    from portfolio_assistant.models.db_models import Portfolio, Position  # noqa: F401
-    from portfolio_assistant.models.user import User  # noqa: F401
 
     SQLModel.metadata.create_all(test_engine)
     try:

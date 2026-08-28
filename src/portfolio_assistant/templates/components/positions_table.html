@@ -12,7 +12,7 @@
       <thead>
         <tr class="border-b border-border text-left">
           <th class="px-6 py-3 text-[11px] font-medium uppercase tracking-wider text-muted-foreground">Ticker</th>
-          <th class="px-6 py-3 text-[11px] font-medium uppercase tracking-wider text-muted-foreground">Název</th>
+          <th class="px-6 py-3 text-[11px] font-medium uppercase tracking-wider text-muted-foreground hidden sm:table-cell">Název</th>
           <th class="px-6 py-3 text-right text-[11px] font-medium uppercase tracking-wider text-muted-foreground">Hodnota</th>
           <th class="px-6 py-3 text-right text-[11px] font-medium uppercase tracking-wider text-muted-foreground">Váha</th>
         </tr>
@@ -21,7 +21,7 @@
         {% for p in positions %}
         <tr class="border-b border-border transition-colors last:border-0 hover:bg-secondary/60">
           <td class="px-6 py-3 font-mono font-medium text-foreground">{{ p.ticker }}</td>
-          <td class="px-6 py-3 text-muted-foreground">{{ p.name }}</td>
+          <td class="px-6 py-3 text-muted-foreground hidden sm:table-cell">{{ p.name }}</td>
           <td class="px-6 py-3 text-right font-mono text-foreground">{{ p.value_formatted }} CZK</td>
           <td class="px-6 py-3 text-right font-mono text-foreground">{{ p.weight }}&nbsp;%</td>
         </tr>

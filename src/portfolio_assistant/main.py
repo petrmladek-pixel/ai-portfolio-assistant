@@ -26,6 +26,8 @@ settings = get_settings()
 
 def seed_database() -> None:
     """Seed the database with default user and portfolios if missing."""
+    if not settings.enable_demo_data:
+        return
     # Guard: Never run the development seeder in production environments
     if settings.environment == "production":
         return
