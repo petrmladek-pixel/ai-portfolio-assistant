@@ -1,3 +1,6 @@
+# All comments and docstrings are strictly in English.
+# Lines are wrapped to stay within the 88-character limit.
+
 import asyncio
 import os
 from collections.abc import AsyncGenerator
@@ -23,33 +26,34 @@ settings = get_settings()
 
 def seed_database() -> None:
     """Seed the database with default user and portfolios if missing."""
+    # Guard: Never run the development seeder in production environments
+    if settings.environment == "production":
+        return
+
+    # Use a generic demo email to avoid hardcoding personal data in git
+    demo_email = getattr(settings, "demo_user_email", "demo@portfolio-assistant.ai")
+
     with Session(engine) as session:
-        # Check if user exists
-        user = session.exec(
-            select(User).where(User.email == "petr.mladek@gmail.com")
-        ).first()
+        user = session.exec(select(User).where(User.email == demo_email)).first()
         if user:
             return
 
-        # Seed data
         new_user = User(
-            email="petr.mladek@gmail.com",
-            full_name="Petr Mladek",
+            email=demo_email,
+            full_name="Demo User",
             hashed_password=hash_password("password123"),
         )
         session.add(new_user)
         session.commit()
         session.refresh(new_user)
 
-        # Default portfolio
         default_portfolio = Portfolio(
             name="Default Portfolio", broker="Unknown", user_id=new_user.id
         )
         session.add(default_portfolio)
 
-        # Buffett portfolio
         buffett_portfolio = Portfolio(
-            name="Ukazkove portfolio (Warren Buffett)",
+            name="Warren Buffett Portfolio",
             broker="Berkshire Hathaway",
             description="Top positions of Berkshire Hathaway",
             user_id=new_user.id,
@@ -58,8 +62,6 @@ def seed_database() -> None:
         session.commit()
         session.refresh(buffett_portfolio)
 
-        # Positions - Total value: 10M CZK
-        # Simplified quantities for 10M CZK total
         positions = [
             (
                 "Apple Inc.",

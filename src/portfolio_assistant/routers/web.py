@@ -81,6 +81,13 @@ def get_portfolio_service() -> PortfolioService:
     return PortfolioService()
 
 
+@router.get("/dashboard", include_in_schema=False)
+async def dashboard_redirect(request: Request) -> RedirectResponse:
+    """Redirect the dashboard alias to the canonical dashboard route."""
+    query = f"?{request.url.query}" if request.url.query else ""
+    return RedirectResponse(url=f"/{query}", status_code=303)
+
+
 @router.post("/portfolios")
 async def create_portfolio_web(
     name: Annotated[str, Form()],
@@ -110,12 +117,17 @@ async def create_portfolio_endpoint(
     """Create a portfolio from the web interface."""
     user_id = get_persisted_user_id(current_user)
     try:
-        portfolio_service.create(session, name.strip(), "DEGIRO", user_id)
+        new_portfolio = portfolio_service.create(
+            session, name.strip(), "DEGIRO", user_id
+        )
     except PersistenceError:
         raise HTTPException(
             status_code=500, detail="Failed to create portfolio"
         ) from None
-    return RedirectResponse("/", status_code=303)
+    return RedirectResponse(
+        url=f"/dashboard?portfolio_id={new_portfolio.id}",
+        status_code=303,
+    )
 
 
 @router.get("/login", response_class=HTMLResponse, include_in_schema=False)
