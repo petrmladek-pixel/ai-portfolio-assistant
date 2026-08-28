@@ -3,7 +3,7 @@ name: Feature Request
 about: Suggest an idea or enhancement for this project
 title: 'feat: '
 labels: enhancement
-assignees: ''
+assignees: ['petrmladek-pixel']
 ---
 
 ## Problem Statement
