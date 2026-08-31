@@ -15,6 +15,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Centralized configurations in `pyproject.toml`.
 - GitHub Actions CI pipeline with automated linting, typing, and testing.
 
+## [0.8.0](https://github.com/petrmladek-pixel/ai-portfolio-assistant/compare/v0.7.0...v0.8.0) (2026-08-31)
+
+
+### Features
+
+* **config:** add demo data configuration options for automatic seeding ([d8c308d](https://github.com/petrmladek-pixel/ai-portfolio-assistant/commit/d8c308d71a300428d6e47e3514d8c56cb6d43921))
+* **dashboard:** enhance guest user experience with dynamic context rendering ([c8daa22](https://github.com/petrmladek-pixel/ai-portfolio-assistant/commit/c8daa2286e78cbca0a8b402bbc054be08dd78f85))
+* **database:** enhance database seeding with demo user and prevent production seeding ([b3bbad3](https://github.com/petrmladek-pixel/ai-portfolio-assistant/commit/b3bbad354b573290e082a91ae5749397141ea92b))
+* **database:** seed database with default user and portfolios on startup ([52a909d](https://github.com/petrmladek-pixel/ai-portfolio-assistant/commit/52a909d68a9f7fdee771cceed5a7b15066b58240))
+* **issue-template:** assign feature request to specific user for better tracking ([17f3d6d](https://github.com/petrmladek-pixel/ai-portfolio-assistant/commit/17f3d6d5ec82987bcd43d7949653b79c9223d53a))
+* **portfolio:** implement portfolio import functionality and enhance user authentication pages ([2d4e11e](https://github.com/petrmladek-pixel/ai-portfolio-assistant/commit/2d4e11eb5e68795b742e5ff70283a6db1c289240))
+* **sidebar:** update CSV upload form to use POST method and enhance file selection feedback ([12b4533](https://github.com/petrmladek-pixel/ai-portfolio-assistant/commit/12b45339b56610aaefbd1fcf3dc82d410db1e9f0))
+* **templates:** add new components for charts, chat widget, positions table, sidebar, and stats cards ([59d7a3c](https://github.com/petrmladek-pixel/ai-portfolio-assistant/commit/59d7a3cc5608e2ebf87559f104edb6c7ca0b84bc))
+
 ## [0.7.0](https://github.com/petrmladek-pixel/ai-portfolio-assistant/compare/v0.6.1...v0.7.0) (2026-08-24)
 
 
