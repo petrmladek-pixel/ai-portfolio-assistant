@@ -9,6 +9,7 @@ from portfolio_assistant.core import database
 
 # Explicitly import all db models so SQLModel registers them before create_all
 from portfolio_assistant.models.db_models import Portfolio, Position  # noqa: F401
+from portfolio_assistant.models.ticker_metadata import TickerMetadata  # noqa: F401
 from portfolio_assistant.models.user import User  # noqa: F401
 
 os.environ["PORTFOLIO_ENVIRONMENT"] = "testing"

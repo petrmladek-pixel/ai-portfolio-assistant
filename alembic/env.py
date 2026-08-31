@@ -8,6 +8,7 @@ from portfolio_assistant.core.database import SQLMODEL_DATABASE_URL
 
 # Import all models to ensure SQLModel's metadata registry knows about them
 from portfolio_assistant.models.db_models import Portfolio, Position  # noqa: F401
+from portfolio_assistant.models.ticker_metadata import TickerMetadata  # noqa: F401
 from portfolio_assistant.models.user import User  # noqa: F401
 
 # this is the Alembic Config object, which provides
