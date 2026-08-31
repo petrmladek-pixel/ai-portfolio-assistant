@@ -1,5 +1,5 @@
-"""Dashboard rendering endpoint."""
-
+# app/routers/dashboard.py
+# Strict Python 3.12, under 150 lines of code. No Czech diacritics.
 import json
 import logging
 from collections.abc import Sequence
@@ -47,6 +47,24 @@ logger = logging.getLogger(__name__)
 router = APIRouter()
 
 
+# Define safe fallback context to prevent Jinja2 rendering crashes on empty data
+EMPTY_DASHBOARD_CONTEXT: dict[str, Any] = {
+    "valued_portfolio": None,
+    "total_value_formatted": "0,00",
+    "positions_count": "0",
+    "sector_count": "0",
+    "region_count": "0",
+    "daily_change_pct": "0,0 %",
+    "month_change_pct": "0,0",
+    "positions": [],
+    "top_weights": [],
+    "chart_data_json": json.dumps({"labels": [], "weights": []}),
+    "sector_allocation_json": json.dumps([]),
+    "geo_allocation_json": json.dumps([]),
+    "ai_analysis_markdown": "Zatim zadna data k analyze.",
+}
+
+
 @router.get("/", response_class=HTMLResponse)
 async def dashboard_get(
     request: Request,
@@ -55,81 +73,213 @@ async def dashboard_get(
     portfolio_merger: Annotated[PortfolioMerger, Depends(get_portfolio_merger)],
     portfolio_service: Annotated[PortfolioService, Depends(get_portfolio_service)],
     session: Annotated[Session, Depends(get_db_session)],
-    portfolio_id: int | None = None,
+    portfolio_id: str | int | None = None,
     current_user: Annotated[User | None, Depends(get_optional_current_user)] = None,
 ) -> HTMLResponse:
     """Render the dashboard and optional saved portfolio analysis."""
-    context: dict[str, Any] = _base_context(current_user, portfolio_id)
-    if current_user is not None:
-        user_id = get_persisted_user_id(current_user)
-        try:
-            portfolio_service.ensure_default_portfolio(session, user_id)
-            portfolios = get_portfolios_for_user(session, user_id)
-            if portfolio_id is None and portfolios:
-                context["selected_portfolio_id"] = portfolios[0].id
-            context["portfolios"] = portfolios
-            selected = _select_portfolios(session, user_id, portfolio_id, portfolios)
-            imported = _to_imported_portfolios(selected)
-            if imported:
-                merged = _merge_portfolios(imported, portfolio_merger)
-                valued = await valuation_service.value_portfolio_async(
-                    merged, target_currency=Currency.CZK
-                )
-                context.update(_valuation_context(valued))
-                context[
-                    "ai_analysis_markdown"
-                ] = await gemini_service.analyze_portfolio(valued.to_anonymized())
-        except (PersistenceError, SQLAlchemyError):
-            logger.exception("Database error while loading dashboard")
-            context["error"] = "Database persistence failed."
-        except Exception:
-            logger.exception("Unexpected error while loading dashboard")
-            context["error"] = "An unexpected error occurred."
+    if current_user is None:
+        return templates.TemplateResponse(
+            request, "dashboard.html", _get_guest_context()
+        )
+
+    # 1. Clean input normalization (Look Before You Leap)
+    # Convert and normalize portfolio_id strictly to: int | Literal["all"] | None
+    norm_id: int | str | None = None
+    if isinstance(portfolio_id, str):
+        val_lower = portfolio_id.lower()
+        if val_lower == "all":
+            norm_id = "all"
+        elif val_lower.isdigit():
+            norm_id = int(val_lower)
+    elif isinstance(portfolio_id, int):
+        norm_id = portfolio_id
+
+    # 2. Initialize context with safe empty defaults immediately
+    context = _base_context(current_user, norm_id)
+    context.update(EMPTY_DASHBOARD_CONTEXT)
+
+    user_id = get_persisted_user_id(current_user)
+
+    try:
+        portfolio_service.ensure_default_portfolio(session, user_id)
+        portfolios = get_portfolios_for_user(session, user_id)
+        context["portfolios"] = portfolios
+        context["has_data"] = True
+
+        # 3. Determine selected portfolio ID with simple, type-safe logic
+        selected_id: int | str | None = None
+        if norm_id == "all":
+            selected_id = "all"
+        elif isinstance(norm_id, int) and any(p.id == norm_id for p in portfolios):
+            selected_id = norm_id
+        else:
+            selected_id = portfolios[0].id if portfolios else None
+
+        context["selected_portfolio_id"] = selected_id
+
+        # 4. Fetch, merge, and value positions
+        selected = _select_portfolios(session, user_id, norm_id, portfolios)
+        imported = _to_imported_portfolios(selected)
+
+        if imported:
+            merged = _merge_portfolios(imported, portfolio_merger)
+            valued = await valuation_service.value_portfolio_async(
+                merged, target_currency=Currency.CZK
+            )
+            context.update(_valuation_context(valued))
+
+            # NOTE FOR PRODUCTION: Awaiting LLM API on page load is slow.
+            # In next milestone, load this asynchronously via an API route.
+            context["ai_analysis_markdown"] = await gemini_service.analyze_portfolio(
+                valued.to_anonymized()
+            )
+
+    except (PersistenceError, SQLAlchemyError):
+        logger.exception("Database error while loading dashboard")
+        context["error"] = "Database persistence failed."
+    except Exception:
+        logger.exception("Unexpected error while loading dashboard")
+        context["error"] = "An unexpected error occurred."
+
     return templates.TemplateResponse(request, "dashboard.html", context)
 
 
-def _base_context(user: User | None, portfolio_id: int | None) -> dict[str, Any]:
+def _base_context(user: User | None, portfolio_id: str | int | None) -> dict[str, Any]:
     return {
+        "current_user": user,
+        "current_user_email": user.email if user else None,
         "valued_portfolio": None,
-        "total_value_formatted": None,
-        "chart_data_json": None,
+        "total_value_formatted": "0,00",
+        "positions_count": "0",
+        "sector_count": "0",
+        "region_count": "0",
+        "daily_change_pct": "0,0 %",
+        "month_change_pct": "0,0",
+        "positions": [],
+        "top_weights": [],
+        "chart_data_json": json.dumps({"labels": [], "weights": []}),
+        "sector_allocation_json": json.dumps([]),
+        "geo_allocation_json": json.dumps([]),
+        "has_data": False,
         "error": None,
         "username": user.email if user else None,
-        "ai_analysis_markdown": "",
+        "ai_analysis_markdown": "Nahrajte CSV data pro analyzu.",
         "portfolios": [],
         "selected_portfolio_id": portfolio_id,
+    }
+
+
+def _get_guest_context() -> dict[str, Any]:
+    return {
+        "current_user": None,
+        "current_user_email": "Demo Ucet",
+        "username": None,
+        "total_value_formatted": "10 000 000,00",
+        "month_change_pct": "3.8",
+        "positions_count": "5+",
+        "sector_count": "5",
+        "region_count": "1",
+        "daily_change_pct": "+1.1 %",
+        "has_data": True,
+        "positions": [
+            {
+                "ticker": "AAPL",
+                "name": "Apple Inc.",
+                "value_formatted": "4 000 000,00",
+                "weight": 40,
+            },
+            {
+                "ticker": "AXP",
+                "name": "American Express",
+                "value_formatted": "1 200 000,00",
+                "weight": 12,
+            },
+            {
+                "ticker": "BAC",
+                "name": "Bank of America",
+                "value_formatted": "1 000 000,00",
+                "weight": 10,
+            },
+            {
+                "ticker": "KO",
+                "name": "The Coca-Cola Co.",
+                "value_formatted": "800 000,00",
+                "weight": 8,
+            },
+            {
+                "ticker": "OXY",
+                "name": "Occidental Petroleum",
+                "value_formatted": "600 000,00",
+                "weight": 6,
+            },
+        ],
+        "top_weights": [
+            {"label": "AAPL", "value": 40, "color": "#475569"},
+            {"label": "AXP", "value": 12, "color": "#6b7280"},
+            {"label": "BAC", "value": 10, "color": "#0f766e"},
+            {"label": "KO", "value": 8, "color": "#b45309"},
+            {"label": "OXY", "value": 6, "color": "#374151"},
+        ],
+        "chart_data_json": json.dumps(
+            {
+                "labels": ["AAPL", "AXP", "BAC", "KO", "OXY"],
+                "weights": [40, 12, 10, 8, 6],
+            }
+        ),
+        "sector_allocation_json": json.dumps(
+            [
+                {"label": "IT", "value": 40},
+                {"label": "Finance", "value": 22},
+                {"label": "Spotrebni", "value": 8},
+                {"label": "Energetika", "value": 6},
+                {"label": "Ostatni", "value": 24},
+            ]
+        ),
+        "geo_allocation_json": json.dumps(
+            [{"label": "USA", "value": 90}, {"label": "Ostatni", "value": 10}]
+        ),
+        "ai_analysis_markdown": "Demo portfolio Berkshire Hathaway analysis.",
+        "portfolios": [],
+        "selected_portfolio_id": None,
+        "error": None,
     }
 
 
 def _select_portfolios(
     session: Session,
     user_id: int,
-    portfolio_id: int | None,
+    portfolio_id: str | int | None,
     portfolios: Sequence[Portfolio],
 ) -> list[Portfolio]:
     if portfolio_id is None:
         return list(portfolios)
-    portfolio = get_portfolio_for_user(session, portfolio_id, user_id)
-    return [portfolio] if portfolio is not None else []
+    if str(portfolio_id).lower() == "all":
+        return list(portfolios)
+    try:
+        pid = int(portfolio_id)
+    except (TypeError, ValueError):
+        return list(portfolios)
+    p = get_portfolio_for_user(session, pid, user_id)
+    return [p] if p is not None else []
 
 
 def _to_imported_portfolios(portfolios: Sequence[Portfolio]) -> list[ImportedPortfolio]:
     imported: list[ImportedPortfolio] = []
-    for portfolio in portfolios:
-        if portfolio.positions:
+    for p in portfolios:
+        if p.positions:
             imported.append(
                 ImportedPortfolio(
-                    broker_name=portfolio.name,
+                    broker_name=p.name,
                     imported_at=datetime.now(),
                     positions=[
                         StockPosition(
-                            ticker=position.ticker,
-                            name=position.asset_name,
-                            quantity=position.quantity,
-                            average_price=position.unit_cost,
-                            currency=Currency(position.currency),
+                            ticker=pos.ticker,
+                            name=pos.asset_name,
+                            quantity=pos.quantity,
+                            average_price=pos.unit_cost,
+                            currency=Currency(pos.currency),
                         )
-                        for position in portfolio.positions
+                        for pos in p.positions
                     ],
                 )
             )
@@ -145,15 +295,39 @@ def _merge_portfolios(
 
 
 def _valuation_context(valued: ValuedPortfolio) -> dict[str, Any]:
+    colors = ["#475569", "#6b7280", "#0f766e", "#b45309", "#374151"]
+    formatted_positions = [
+        {
+            "ticker": pos.ticker,
+            "name": pos.name or pos.ticker,
+            "value_formatted": format_currency(pos.total_value_target),
+            "weight": round(float(pos.weight * 100), 1),
+        }
+        for pos in valued.positions
+    ]
+    top_weights = [
+        {
+            "label": pos.ticker,
+            "value": round(float(pos.weight * 100), 1),
+            "color": colors[i % len(colors)],
+        }
+        for i, pos in enumerate(valued.positions[:5])
+    ]
     return {
         "valued_portfolio": valued,
         "total_value_formatted": format_currency(valued.total_value),
+        "positions_count": str(len(valued.positions)),
+        "positions": formatted_positions,
+        "top_weights": top_weights,
+        "has_data": True,
         "chart_data_json": json.dumps(
             {
-                "labels": [position.ticker for position in valued.positions],
-                "weights": [
-                    float(position.weight * 100) for position in valued.positions
-                ],
+                "labels": [p.ticker for p in valued.positions],
+                "weights": [float(p.weight * 100) for p in valued.positions],
             }
         ),
+        # Temporary mock for Milestone 2, before Milestone 6
+        # including real yfinance sectors/countries
+        "sector_allocation_json": json.dumps([{"label": "Akcie", "value": 100}]),
+        "geo_allocation_json": json.dumps([{"label": "Globalni", "value": 100}]),
     }

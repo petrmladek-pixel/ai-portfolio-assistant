@@ -1,6 +1,7 @@
 """HTTP-independent workflows for portfolio persistence."""
 
 from datetime import date
+from typing import Any
 
 from sqlalchemy.exc import SQLAlchemyError
 from sqlmodel import Session
@@ -55,7 +56,7 @@ class PortfolioService:
         try:
             imported = await parser.parse(file_content)
         except Exception as error:
-            raise PortfolioImportError from error
+            raise PortfolioImportError(str(error)) from error
         self.replace_imported_positions(session, user_id, portfolio_id, imported)
         return imported
 
@@ -102,3 +103,31 @@ class PortfolioService:
         except SQLAlchemyError as error:
             session.rollback()
             raise PersistenceError from error
+
+    async def process_portfolio_import(
+        self,
+        session: Session,
+        user_id: int,
+        portfolio_id: int,
+        import_type: str,
+        file: Any,
+    ) -> ImportedPortfolio:
+        """Process portfolio import from file upload or bytes."""
+        if hasattr(file, "read"):
+            content = await file.read() if callable(file.read) else file.read()
+        elif isinstance(file, bytes):
+            content = file
+        else:
+            content = bytes(file)
+
+        degiro_parser = DegiroPortfolioParser()
+        fio_parser = FioBrokerPortfolioParser()
+        return await self.import_portfolio_file(
+            session,
+            user_id,
+            portfolio_id,
+            import_type,
+            content,
+            degiro_parser,
+            fio_parser,
+        )

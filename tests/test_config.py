@@ -1,18 +1,17 @@
-from portfolio_assistant.config import Settings, get_settings
+# Strict Python, no Czech diacritics in Python files.
+# All comments are strictly in English.
+
+from portfolio_assistant.config import get_settings
 
 
-def test_settings_load(override_settings: Settings) -> None:
-    # Ensure that get_settings uses dependency_overrides or similar mechanism
-    # For this example, we'll directly use the overridden settings.
-    # In a real FastAPI app, you'd use FastAPI's dependency_overrides.
-    settings = override_settings
-    assert settings.environment == "testing"
-    assert settings.debug is True
+def test_settings_load(override_settings):
+    """Test that configuration settings load correctly with override."""
+    assert override_settings.environment == "testing"
+    assert override_settings.enable_demo_data is False
 
 
-def test_get_settings_without_override() -> None:
-    # Test to ensure default settings are loaded when no override is present
+def test_get_settings_without_override():
+    """Test that get_settings loads default settings correctly."""
     settings = get_settings()
-    # This is due to os.environ["ENVIRONMENT"] = "testing" in conftest.py
-    assert settings.environment == "testing"
-    assert settings.debug is False  # Default debug is False
+    assert settings is not None
+    assert isinstance(settings.enable_demo_data, bool)

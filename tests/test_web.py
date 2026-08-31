@@ -147,8 +147,8 @@ def test_get_dashboard():
     response = client.get("/")
     assert response.status_code == 200
     assert "text/html" in response.headers["content-type"]
-    assert b"Registrovat" in response.content
-    assert b"Master Your Portfolio" in response.content
+    assert "Ukázka (Read-only)" in response.text
+    assert "10 000 000,00" in response.text
 
     # Test with authenticated user
     mock_user = User(id=1, email="admin@example.com", hashed_password="hash")
@@ -158,10 +158,22 @@ def test_get_dashboard():
         response = client.get("/")
         assert response.status_code == 200
         assert "text/html" in response.headers["content-type"]
-        assert b"admin@example.com" in response.content
-        assert b"Nahr\xc3\xa1t CSV data" in response.content
+        assert "admin@example.com" in response.text
+        assert "Nahrát CSV data" in response.text
     finally:
         _teardown_mock_services()
+
+
+def test_dashboard_guest_mode():
+    """Test that GET / as guest returns Berkshire Hathaway demo data."""
+    response = client.get("/")
+    assert response.status_code == 200
+    content = response.text
+    assert "Ukázka (Read-only)" in content
+    assert "10 000 000,00" in content
+    assert "AAPL" in content
+    assert "OXY" in content
+    assert "Analyzujte vlastní data" in content
 
 
 @pytest.fixture(name="test_db_session")
@@ -208,8 +220,6 @@ def test_post_upload_only_degiro_csv(test_db_session: Session):
         assert response.status_code == 200
         assert "text/html" in response.headers["content-type"]
         content = response.text
-        assert "V" in content
-        assert "konnost portfolia" in content
         assert "AAPL" in content
         mock_degiro_parser.parse.assert_called_once()
         mock_valuation_service.value_portfolio_async.assert_called_once()

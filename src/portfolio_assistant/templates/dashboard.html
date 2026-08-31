@@ -1,405 +1,260 @@
-<!DOCTYPE html>
-<html lang="cs">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Portfolio Assistant</title>
-    <script src="https://cdn.tailwindcss.com"></script>
-    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/dompurify/dist/purify.min.js"></script>
-    <style>
-        .modal {
-            transition: opacity 0.25s ease;
-        }
-        body.modal-active {
-            overflow-x: hidden;
-            overflow-y: hidden !important;
-        }
-    </style>
-</head>
-<body class="bg-gray-100 min-h-screen">
-    <div class="container mx-auto px-4 py-8">
-        <!-- Header -->
-        <div class="flex justify-between items-center mb-8 bg-white p-6 rounded-lg shadow-sm">
-            <div>
-                <h1 class="text-3xl font-bold text-indigo-800">Portfolio Assistant</h1>
-                <p class="text-gray-500">Analyze and track your investments</p>
-            </div>
-            <div id="auth-section">
-                {% if username %}
-                <div class="flex items-center space-x-4">
-                    <span class="text-gray-700 font-medium">Ahoj, {{ username }}</span>
-                    <button onclick="logout()" class="bg-red-50 text-red-600 px-4 py-2 rounded-md hover:bg-red-100 transition-colors">Odhlásit</button>
-                </div>
-                {% else %}
-                <div class="flex space-x-4">
-                    <button onclick="toggleModal('login-modal')" class="text-indigo-600 hover:text-indigo-800 font-medium">Přihlásit se</button>
-                    <button onclick="toggleModal('register-modal')" class="bg-indigo-600 text-white px-4 py-2 rounded-md hover:bg-indigo-700 transition-colors">Registrovat</button>
-                </div>
-                {% endif %}
-            </div>
-        </div>
+{% extends 'layouts/base.html' %}
+{% block title %}Dashboard | AI Portfolio Assistant{% endblock %}
+{% block body %}
+<div class="lg:flex min-h-screen">
+  <!-- ================= MOBILE TOP BAR ================= -->
+  <div class="flex items-center justify-between border-b border-border bg-card px-4 py-3 lg:hidden w-full">
+    <span class="text-sm font-bold uppercase tracking-wider text-foreground">AI Portfolio Assistant</span>
+    <button type="button" id="open-menu" aria-label="Open menu" class="rounded-sm border border-border p-2 text-foreground">
+      <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="4" x2="20" y1="12" y2="12"/><line x1="4" x2="20" y1="6" y2="6"/><line x1="4" x2="20" y1="18" y2="18"/></svg>
+    </button>
+  </div>
 
-        {% if not username %}
-        <!-- Welcome Section -->
-        <div class="max-w-4xl mx-auto bg-white rounded-xl shadow-lg p-10 text-center mb-8 border-t-4 border-indigo-600">
-            <div class="mb-6">
-                <svg class="w-20 h-20 text-indigo-600 mx-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6"></path>
-                </svg>
+  <!-- ================= DESKTOP STICKY SIDEBAR ================= -->
+  <aside class="sticky top-0 z-30 hidden h-screen w-80 shrink-0 border-r border-border bg-sidebar lg:block">
+    <div class="sidebar-body flex h-full flex-col">{% include 'components/sidebar.html' %}</div>
+  </aside>
+
+  <!-- ================= MOBILE DRAWER ================= -->
+  <div id="drawer" class="fixed inset-0 z-50 hidden lg:hidden">
+    <div id="drawer-backdrop" class="absolute inset-0 bg-foreground/20"></div>
+    <div class="absolute inset-y-0 left-0 w-80 max-w-[85%] border-r border-border bg-sidebar">
+      <div class="flex justify-end p-3">
+        <button type="button" id="close-menu" aria-label="Close menu" class="rounded-sm border border-border p-2 text-foreground">
+          <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg>
+        </button>
+      </div>
+      <div class="sidebar-body h-[calc(100%-3.25rem)]">{% include 'components/sidebar.html' %}</div>
+    </div>
+  </div>
+
+  <!-- ================= MAIN CONTENT ================= -->
+  <main class="flex-1 px-4 py-6 sm:px-8 sm:py-10 lg:px-12">
+    <div class="mx-auto max-w-5xl">
+      {% if error %}<div class="mb-4 rounded-sm border border-red-300 bg-red-50 p-4 text-sm text-red-800">{{ error }}</div>{% endif %}
+      <section>
+        <div class="flex flex-wrap items-baseline justify-between gap-2">
+          <h2 class="text-2xl font-bold tracking-tight text-foreground text-balance">
+            Ahoj, {{ username if username and username != 'None' else 'Warrene' }}
+          </h2>
+          <span class="flex items-center gap-2 text-xs text-muted-foreground">
+            <span class="size-1.5 rounded-full bg-gain" aria-hidden="true"></span>Aktualizováno před 5 minutami
+          </span>
+        </div>
+        {% include 'components/stats_cards.html' %}
+      </section>
+
+      <!-- Charts & Positions Grid (Conditional Rendering based on has_data) -->
+      <div class="mt-4 grid gap-4 lg:mt-6 lg:gap-6">
+        {% if has_data %}
+          {% include 'components/charts_section.html' %}
+
+          <div class="grid gap-4 lg:gap-6 xl:grid-cols-2">
+            <!-- Benchmark Chart -->
+            <section class="rounded-sm border border-border bg-card p-6">
+              <div class="mb-6 flex flex-wrap items-center justify-between gap-3">
+                <h3 class="text-[11px] font-semibold uppercase tracking-wider text-foreground">Vývoj portfolia vs. Benchmark</h3>
+                <div class="flex items-center gap-5 text-xs">
+                  <span class="flex items-center gap-2 text-foreground"><span class="h-0.5 w-5 bg-primary" aria-hidden="true"></span>Moje portfolio</span>
+                  <span class="flex items-center gap-2 text-muted-foreground"><span class="h-0 w-5 border-t border-dashed border-muted-foreground" aria-hidden="true"></span>S&amp;P 500</span>
+                </div>
+              </div>
+              <div id="benchmark-chart"></div>
+              <div id="benchmark-months" class="mt-3 flex justify-between font-mono text-[11px] text-muted-foreground"></div>
+            </section>
+
+            <!-- AI Chat Widget -->
+            {% include 'components/chat_widget.html' %}
+          </div>
+          {% include 'components/positions_table.html' %}
+        {% else %}
+          <!-- ================= EMPTY STATE (For fresh logged-in users with 0 positions) ================= -->
+          <div class="rounded-sm border border-border bg-card p-10 text-center flex flex-col items-center justify-center max-w-2xl mx-auto space-y-4 my-10">
+            <div class="size-12 rounded-full bg-neutral-100 flex items-center justify-center text-foreground">
+              <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" x2="12" y1="3" y2="15"/></svg>
             </div>
-            <h2 class="text-3xl font-bold text-gray-800 mb-4">Master Your Portfolio</h2>
-            <p class="text-xl text-gray-600 mb-8 leading-relaxed">
-                Import data from DEGIRO or Fio e-Broker, visualize your allocation, and get AI-powered insights to optimize your strategy.
+            <h3 class="text-lg font-bold tracking-tight text-foreground">Vítejte ve svém novém portfoliu!</h3>
+            <p class="text-sm text-muted-foreground leading-relaxed">
+              Zatím zde nemáte žádná data. Chcete-li spustit automatickou analýzu a odemknout plnou sílu AI Copilota, nahrajte své první CSV s investičními pozicemi (např. export z DEGIRO nebo Fio e-Brokeru) v levém panelu.
             </p>
-            <div class="flex justify-center space-x-6">
-                <button onclick="toggleModal('register-modal')" class="bg-indigo-600 text-white px-8 py-3 rounded-lg text-lg font-semibold hover:bg-indigo-700 transition-colors shadow-md">Začít zdarma</button>
-            </div>
-        </div>
+          </div>
         {% endif %}
-
-        {% if username %}
-        <!-- Portfolio Selection and Creation Controls -->
-        <div class="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-6 bg-white p-4 rounded-lg shadow-sm">
-            <div class="flex items-center space-x-3 w-full md:w-auto">
-                <label for="portfolio_selector" class="font-semibold text-gray-700 whitespace-nowrap">Vybrat portfolio:</label>
-                <select id="portfolio_selector" onchange="switchPortfolio(this.value)" class="border border-gray-300 rounded-md p-2 focus:ring-indigo-500 focus:border-indigo-500 w-full md:w-64 bg-gray-50">
-                    <option value="" {% if selected_portfolio_id is none %}selected{% endif %}>Všechna portfolia</option>
-                    {% for p in portfolios %}
-                    <option value="{{ p.id }}" {% if selected_portfolio_id == p.id %}selected{% endif %}>{{ p.name }} ({{ p.broker }})</option>
-                    {% endfor %}
-                </select>
-            </div>
-            <div>
-                <button onclick="toggleModal('create-portfolio-modal')" class="bg-indigo-600 text-white px-4 py-2 rounded-md hover:bg-indigo-700 transition-colors font-medium shadow">Vytvořit nové portfolio</button>
-            </div>
-        </div>
-
-        <!-- Main Dashboard for Authenticated Users -->
-        <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
-            <!-- Left Column: Upload & Controls -->
-            <div class="lg:col-span-1 space-y-8">
-                <div class="bg-white rounded-xl shadow-md p-6 border-t-4 border-indigo-500">
-                    <h2 class="text-xl font-bold mb-6 text-gray-800 flex items-center">
-                        <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12"></path>
-                        </svg>
-                        Nahrát CSV data
-                    </h2>
-
-                    <form action="/upload" method="post" enctype="multipart/form-data" class="space-y-6">
-                        <div>
-                            <label for="upload_portfolio_id" class="block text-sm font-semibold text-gray-700 mb-2">Importovat do portfolia:</label>
-                            <select name="portfolio_id" id="upload_portfolio_id" required class="w-full border border-gray-300 rounded-md p-2 bg-gray-50 focus:ring-indigo-500 focus:border-indigo-500">
-                                {% for p in portfolios %}
-                                <option value="{{ p.id }}" {% if selected_portfolio_id == p.id or (selected_portfolio_id is none and loop.first) %}selected{% endif %}>{{ p.name }} ({{ p.broker }})</option>
-                                {% endfor %}
-                            </select>
-                        </div>
-
-                        <div>
-                            <label for="import_type" class="block text-sm font-semibold text-gray-700 mb-2">Typ importu:</label>
-                            <select name="import_type" id="import_type" required class="w-full border border-gray-300 rounded-md p-2 bg-gray-50 focus:ring-indigo-500 focus:border-indigo-500">
-                                <option value="degiro">DEGIRO</option>
-                                <option value="fio">Fio e-Broker</option>
-                            </select>
-                        </div>
-
-                        <div class="bg-indigo-50 p-4 rounded-lg border border-indigo-100">
-                            <label for="file" class="block text-sm font-semibold text-indigo-900 mb-2">CSV soubor</label>
-                            <input type="file" name="file" id="file" accept=".csv" required
-                                   class="block w-full text-sm text-indigo-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-indigo-600 file:text-white hover:file:bg-indigo-700 cursor-pointer">
-                        </div>
-
-                        <button type="submit"
-                                class="w-full bg-indigo-600 text-white py-3 px-4 rounded-lg font-bold text-lg hover:bg-indigo-700 transition-all shadow-lg hover:shadow-xl flex items-center justify-center">
-                            <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"></path>
-                            </svg>
-                            Synchronize and Analyze
-                        </button>
-                    </form>
-                </div>
-
-                <!-- Existing Portfolio Info -->
-                <div id="saved-portfolio-card" class="bg-white rounded-xl shadow-md p-6 hidden">
-                    <h2 class="text-xl font-bold mb-4 text-gray-800">Uložené portfolio</h2>
-                    <div id="saved-portfolio-details" class="space-y-3">
-                        <!-- Filled by JS -->
-                    </div>
-                    <button onclick="window.location.reload()" class="mt-4 w-full text-indigo-600 font-medium hover:underline">Aktualizovat data</button>
-                </div>
-            </div>
-
-            <!-- Right Column: Results & Insights -->
-            <div class="lg:col-span-2 space-y-8">
-                {% if error %}
-                <div class="bg-red-50 border-l-8 border-red-500 p-6 rounded-lg shadow-sm">
-                    <div class="flex items-center">
-                        <svg class="w-8 h-8 text-red-500 mr-3" fill="currentColor" viewBox="0 0 20 20">
-                            <path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z" clip-rule="evenodd" />
-                        </svg>
-                        <div>
-                            <h3 class="text-lg font-bold text-red-800">Došlo k chybě</h3>
-                            <p class="text-red-700">{{ error }}</p>
-                        </div>
-                    </div>
-                </div>
-                {% endif %}
-
-                {% if valued_portfolio %}
-                <!-- Portfolio Metrics -->
-                <div class="bg-white rounded-xl shadow-md p-8 border-b-4 border-indigo-500">
-                    <div class="flex flex-col md:flex-row justify-between items-start md:items-center mb-8">
-                        <div>
-                            <h2 class="text-2xl font-bold text-gray-800">Výkonnost portfolia</h2>
-                            <p class="text-gray-500">K datu {{ valued_portfolio.valued_at.strftime('%Y-%m-%d %H:%M:%S') }}</p>
-                        </div>
-                        <div class="mt-4 md:mt-0 bg-indigo-600 text-white px-6 py-3 rounded-2xl shadow-lg">
-                            <span class="text-sm opacity-80 block">Celková hodnota</span>
-                            <span class="text-3xl font-extrabold">{{ total_value_formatted }} {{ valued_portfolio.target_currency }}</span>
-                        </div>
-                    </div>
-
-                    <!-- Charts & Table -->
-                    <div class="grid grid-cols-1 xl:grid-cols-2 gap-8 mb-8">
-                        <div class="bg-gray-50 p-6 rounded-xl border border-gray-100">
-                            <h3 class="text-lg font-bold mb-4 text-gray-700 text-center">Alokace aktiv</h3>
-                            <div class="relative h-64">
-                                <canvas id="allocationChart"></canvas>
-                            </div>
-                        </div>
-                        <div class="overflow-x-auto bg-white rounded-xl border border-gray-100">
-                            <table class="min-w-full divide-y divide-gray-200">
-                                <thead class="bg-gray-50">
-                                    <tr>
-                                        <th class="px-4 py-3 text-left text-xs font-bold text-gray-500 uppercase">Ticker</th>
-                                        <th class="px-4 py-3 text-right text-xs font-bold text-gray-500 uppercase">Hodnota</th>
-                                        <th class="px-4 py-3 text-right text-xs font-bold text-gray-500 uppercase">Váha</th>
-                                    </tr>
-                                </thead>
-                                <tbody class="divide-y divide-gray-200">
-                                    {% for position in valued_portfolio.positions %}
-                                    <tr class="hover:bg-indigo-50 transition-colors">
-                                        <td class="px-4 py-3 text-sm font-bold text-gray-900">{{ position.ticker }}</td>
-                                        <td class="px-4 py-3 text-sm text-right text-gray-600">{{ position.total_value_target|format_currency }}</td>
-                                        <td class="px-4 py-3 text-sm text-right font-medium text-indigo-600">{{ (position.weight * 100)|round(1) }}%</td>
-                                    </tr>
-                                    {% endfor %}
-                                </tbody>
-                            </table>
-                        </div>
-                    </div>
-
-                    <!-- AI Insights -->
-                    <div class="bg-gradient-to-br from-indigo-900 to-blue-900 text-white rounded-xl p-8 shadow-inner">
-                        <div class="flex items-center mb-6">
-                            <div class="bg-indigo-500 p-2 rounded-lg mr-4">
-                                <svg class="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"></path>
-                                </svg>
-                            </div>
-                            <h3 class="text-2xl font-bold">AI Inteligentní přehled</h3>
-                        </div>
-                        <div id="ai-analysis-rendered" class="prose prose-invert max-w-none text-indigo-100">
-                            <p class="italic animate-pulse">Generování vaší personalizované investiční strategie...</p>
-                        </div>
-                    </div>
-                </div>
-                {% else %}
-                <!-- Empty State / Instructions -->
-                <div id="no-data-placeholder" class="bg-white rounded-xl shadow-md p-12 text-center border-2 border-dashed border-gray-300">
-                    <svg class="w-16 h-16 text-gray-300 mx-auto mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 17v-2m3 2v-4m3 4v-6m2 10H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
-                    </svg>
-                    <h3 class="text-xl font-bold text-gray-700">Žádné portfolio není načteno</h3>
-                    <p class="text-gray-500 mt-2">Nahrajte exportní CSV soubory od vašeho brokera pro zahájení analýzy.</p>
-                </div>
-                {% endif %}
-            </div>
-        </div>
-        {% endif %}
-
-        <!-- Hidden Data Elements -->
-        {% if chart_data_json %}
-        <div id="chart-data" data-chart='{{ chart_data_json }}' class="hidden"></div>
-        {% endif %}
-        {% if ai_analysis_markdown %}
-        <div id="ai-analysis-data" class="hidden" data-raw-markdown="{{ ai_analysis_markdown }}"></div>
-        {% endif %}
+      </div>
     </div>
+  </main>
+</div>
 
-    <!-- Modals -->
-    <!-- Create Portfolio Modal -->
-    <div id="create-portfolio-modal" class="modal opacity-0 pointer-events-none fixed w-full h-full top-0 left-0 flex items-center justify-center z-50">
-        <div class="modal-overlay absolute w-full h-full bg-gray-900 opacity-50"></div>
-        <div class="modal-container bg-white w-11/12 md:max-w-md mx-auto rounded shadow-lg z-50 overflow-y-auto">
-            <div class="modal-content py-4 text-left px-6">
-                <div class="flex justify-between items-center pb-3 border-b border-gray-200">
-                    <p class="text-2xl font-bold text-gray-800">Nové portfolio</p>
-                    <button onclick="toggleModal('create-portfolio-modal')" class="text-gray-400 hover:text-gray-600">
-                        <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
-                        </svg>
-                    </button>
-                </div>
-                <form action="/portfolios" method="post" class="mt-6 space-y-4">
-                    <div>
-                        <label class="block text-sm font-medium text-gray-700">Název portfolia</label>
-                        <input type="text" name="name" required placeholder="Např. Moje Fio DIP" class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm p-2 focus:ring-indigo-500 focus:border-indigo-500">
-                    </div>
-                    <div>
-                        <label class="block text-sm font-medium text-gray-700">Broker</label>
-                        <select name="broker" required class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm p-2 focus:ring-indigo-500 focus:border-indigo-500 bg-white">
-                            <option value="Fio">Fio e-Broker</option>
-                            <option value="DEGIRO">DEGIRO</option>
-                        </select>
-                    </div>
-                    <button type="submit" class="w-full bg-indigo-600 text-white py-2 rounded-md font-bold hover:bg-indigo-700">Vytvořit</button>
-                </form>
+<script>
+  // ========================= PREMIUM MUTED COLOR PALETTE =========================
+  const chartColors = ['#475569', '#6b7280', '#0f766e', '#b45309', '#374151', '#d1d5db'];
+
+  // ========================= DYNAMIC DATA FROM BACKEND =========================
+  // Safely parse JSON strings to avoid IDE/VS Code syntax warnings
+  const sectorAllocation = JSON.parse('{{ sector_allocation_json | safe }}' || '[]');
+  const geoAllocation = JSON.parse('{{ geo_allocation_json | safe }}' || '[]');
+
+  // Parse boolean flag from Jinja2 safely using standard JavaScript literal format
+  const hasData = JSON.parse('{{ "true" if has_data else "false" }}' || 'false');
+
+  // SVG Donut Generator
+  const SIZE = 168, STROKE = 22, RADIUS = (SIZE - STROKE) / 2, CIRCUMFERENCE = 2 * Math.PI * RADIUS, GAP = 1.2;
+
+  function renderDonut(targetId, slices, centerValue, centerLabel) {
+    const targetElement = document.getElementById(targetId);
+    if (!targetElement) return; // Defensive check: If element is not in DOM, bypass rendering
+
+    const isEmpty = !slices || slices.length === 0 || slices.every(s => s.value === 0);
+
+    if (isEmpty) {
+      targetElement.innerHTML = `
+        <div class="flex flex-col sm:flex-row xl:flex-col min-[1400px]:flex-row items-center gap-5 xl:gap-6 w-full min-w-0">
+          <div class="relative size-[168px] shrink-0 flex items-center justify-center">
+            <svg width="${SIZE}" height="${SIZE}" viewBox="0 0 ${SIZE} ${SIZE}" class="absolute inset-0 shrink-0 -rotate-90" role="img" aria-label="Donut Chart Empty">
+              <circle cx="${SIZE/2}" cy="${SIZE/2}" r="${RADIUS}" fill="none" stroke="#e5e5e5" stroke-width="${STROKE}" stroke-dasharray="6 6" vector-effect="non-scaling-stroke" />
+            </svg>
+            <div class="absolute inset-0 flex items-center justify-center p-2 text-center pointer-events-none">
+              <span class="text-[11px] font-medium text-muted-foreground leading-snug">Zatím žádná data k analýze</span>
             </div>
-        </div>
-    </div>
-
-    <!-- Login Modal -->
-    <div id="login-modal" class="modal opacity-0 pointer-events-none fixed w-full h-full top-0 left-0 flex items-center justify-center z-50">
-        <div class="modal-overlay absolute w-full h-full bg-gray-900 opacity-50"></div>
-        <div class="modal-container bg-white w-11/12 md:max-w-md mx-auto rounded shadow-lg z-50 overflow-y-auto">
-            <div class="modal-content py-4 text-left px-6">
-                <div class="flex justify-between items-center pb-3 border-b border-gray-200">
-                    <p class="text-2xl font-bold text-gray-800">Vítejte zpět</p>
-                    <button onclick="toggleModal('login-modal')" class="text-gray-400 hover:text-gray-600">
-                        <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
-                        </svg>
-                    </button>
-                </div>
-                <form id="login-form" class="mt-6 space-y-4" onsubmit="handleAuth(event, 'login')">
-                    <div>
-                        <label class="block text-sm font-medium text-gray-700">E-mailová adresa</label>
-                        <input type="email" name="email" required class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm p-2 focus:ring-indigo-500 focus:border-indigo-500">
-                    </div>
-                    <div>
-                        <label class="block text-sm font-medium text-gray-700">Heslo</label>
-                        <input type="password" name="password" required class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm p-2 focus:ring-indigo-500 focus:border-indigo-500">
-                    </div>
-                    <button type="submit" class="w-full bg-indigo-600 text-white py-2 rounded-md font-bold hover:bg-indigo-700">Přihlásit se</button>
-                </form>
+          </div>
+          <div class="flex-1 w-full min-w-0 text-center sm:text-left xl:text-center min-[1400px]:text-left">
+            <div class="mb-3 border-b border-border pb-2">
+              <p class="font-mono text-xl font-semibold tracking-tight text-foreground">${centerValue}</p>
+              <p class="mt-0.5 text-[10px] uppercase tracking-wider text-muted-foreground">${centerLabel}</p>
             </div>
+          </div>
+        </div>`;
+      return;
+    }
+
+    let offset = 0;
+    const circles = slices.map((slice, i) => {
+      const dash = (Math.max(slice.value - GAP, 0) / 100) * CIRCUMFERENCE;
+      const gapDash = CIRCUMFERENCE - dash;
+      const strokeDashoffset = -((offset / 100) * CIRCUMFERENCE);
+      offset += slice.value;
+      return `<circle cx="${SIZE/2}" cy="${SIZE/2}" r="${RADIUS}" fill="none" stroke="${chartColors[i % chartColors.length]}" stroke-width="${STROKE}" stroke-dasharray="${dash} ${gapDash}" stroke-dashoffset="${strokeDashoffset}" />`;
+    }).join('');
+
+    const legend = slices.map((slice, i) => `
+      <li class="flex items-center justify-between gap-3 text-xs sm:text-sm min-w-0">
+        <span class="flex items-center gap-2 min-w-0">
+          <span class="size-2.5 shrink-0" style="background-color:${chartColors[i % chartColors.length]}" aria-hidden="true"></span>
+          <span class="text-foreground truncate">${slice.label}</span>
+        </span>
+        <span class="font-mono text-muted-foreground whitespace-nowrap">${slice.value}&nbsp;%</span>
+      </li>`).join('');
+
+    targetElement.innerHTML = `
+      <div class="flex flex-col sm:flex-row xl:flex-col min-[1400px]:flex-row items-center gap-5 xl:gap-6 w-full min-w-0">
+        <svg width="${SIZE}" height="${SIZE}" viewBox="0 0 ${SIZE} ${SIZE}" class="shrink-0 -rotate-90" role="img" aria-label="Donut Chart">${circles}</svg>
+        <div class="flex-1 w-full min-w-0">
+          <div class="mb-3 border-b border-border pb-2">
+            <p class="font-mono text-xl font-semibold tracking-tight text-foreground">${centerValue}</p>
+            <p class="mt-0.5 text-[10px] uppercase tracking-wider text-muted-foreground">${centerLabel}</p>
+          </div>
+          <ul class="flex flex-col gap-2 w-full min-w-0">${legend}</ul>
         </div>
-    </div>
+      </div>`;
+  }
 
-    <!-- Register Modal -->
-    <div id="register-modal" class="modal opacity-0 pointer-events-none fixed w-full h-full top-0 left-0 flex items-center justify-center z-50">
-        <div class="modal-overlay absolute w-full h-full bg-gray-900 opacity-50"></div>
-        <div class="modal-container bg-white w-11/12 md:max-w-md mx-auto rounded shadow-lg z-50 overflow-y-auto">
-            <div class="modal-content py-4 text-left px-6">
-                <div class="flex justify-between items-center pb-3 border-b border-gray-200">
-                    <p class="text-2xl font-bold text-gray-800">Vytvořit účet</p>
-                    <button onclick="toggleModal('register-modal')" class="text-gray-400 hover:text-gray-600">
-                        <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
-                        </svg>
-                    </button>
-                </div>
-                <form id="register-form" class="mt-6 space-y-4" onsubmit="handleAuth(event, 'register')">
-                    <div>
-                        <label class="block text-sm font-medium text-gray-700">Celé jméno</label>
-                        <input type="text" name="full_name" required class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm p-2 focus:ring-indigo-500 focus:border-indigo-500">
-                    </div>
-                    <div>
-                        <label class="block text-sm font-medium text-gray-700">E-mailová adresa</label>
-                        <input type="email" name="email" required class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm p-2 focus:ring-indigo-500 focus:border-indigo-500">
-                    </div>
-                    <div>
-                        <label class="block text-sm font-medium text-gray-700">Heslo</label>
-                        <input type="password" name="password" required class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm p-2 focus:ring-indigo-500 focus:border-indigo-500">
-                    </div>
-                    <button type="submit" class="w-full bg-indigo-600 text-white py-2 rounded-md font-bold hover:bg-indigo-700">Registrovat</button>
-                </form>
-            </div>
-        </div>
-    </div>
+  // Render donut charts ONLY if data exists
+  if (hasData) {
+    renderDonut('donut-sector', sectorAllocation, '{{ sector_count | default("5+") }}', 'Sektorů');
+    renderDonut('donut-geo', geoAllocation, '{{ region_count | default("5") }}', 'Regionů');
+  }
 
-    <script>
-        // Modal helpers
-        function toggleModal(modalId) {
-            const modal = document.getElementById(modalId);
-            modal.classList.toggle('opacity-0');
-            modal.classList.toggle('pointer-events-none');
-            document.body.classList.toggle('modal-active');
-        }
+  // ================= MOBILE DRAWER TRIGGER =================
+  const drawer = document.getElementById('drawer');
+  document.getElementById('open-menu').addEventListener('click', () => drawer.classList.remove('hidden'));
+  const closeDrawer = () => drawer.classList.add('hidden');
+  document.getElementById('close-menu').addEventListener('click', closeDrawer);
+  document.getElementById('drawer-backdrop').addEventListener('click', closeDrawer);
 
-        // Switch active portfolio
-        function switchPortfolio(val) {
-            if (val) {
-                window.location.href = '/?portfolio_id=' + val;
-            } else {
-                window.location.href = '/';
-            }
-        }
+  // ================= BENCHMARK SVG RENDER =================
+  const portfolioSeries = [100, 102, 101, 106, 109, 108, 113, 117, 121, 126];
+  const benchmarkSeries = [100, 101, 103, 104, 103, 106, 108, 110, 112, 115];
+  const benchmarkMonths = ['Led','Úno','Bře','Dub','Kvě','Črv','Črc','Srp','Zář','Říj'];
+  const W = 720, H = 240, PAD_X = 8, PAD_Y = 16;
 
-        // Auth handlers
-        async function handleAuth(event, type) {
-            event.preventDefault();
-            const formData = new FormData(event.target);
-            const data = Object.fromEntries(formData.entries());
+  function buildPath(series) {
+    const min = Math.min(...portfolioSeries, ...benchmarkSeries);
+    const max = Math.max(...portfolioSeries, ...benchmarkSeries);
+    const range = max - min || 1;
+    const stepX = (W - PAD_X * 2) / (series.length - 1);
+    return series.map((v, i) => {
+      const x = PAD_X + i * stepX;
+      const y = PAD_Y + (1 - (v - min) / range) * (H - PAD_Y * 2);
+      return `${i === 0 ? 'M' : 'L'}${x.toFixed(2)} ${y.toFixed(2)}`;
+    }).join(' ');
+  }
 
-            try {
-                const response = await fetch(`/api/auth/${type}`, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify(data)
-                });
+  // Render the benchmark chart ONLY if data exists and elements are available
+  if (hasData) {
+    const gridlines = [0, 0.25, 0.5, 0.75, 1].map(t => {
+      const y = PAD_Y + t * (H - PAD_Y * 2);
+      return `<line x1="${PAD_X}" x2="${W - PAD_X}" y1="${y}" y2="${y}" stroke="#e5e5e5" stroke-width="1" />`;
+    }).join('');
 
-                if (response.ok) {
-                    window.location.reload();
-                } else {
-                    const err = await response.json();
-                    alert(err.detail || 'Authentication failed');
-                }
-            } catch (error) {
-                alert('Network error during authentication');
-            }
-        }
+    const benchmarkChartElement = document.getElementById('benchmark-chart');
+    if (benchmarkChartElement) {
+      benchmarkChartElement.innerHTML = `
+        <svg viewBox="0 0 ${W} ${H}" class="h-56 w-full" preserveAspectRatio="none">
+          ${gridlines}
+          <path d="${buildPath(benchmarkSeries)}" fill="none" stroke="#8a8a8a" stroke-width="1.5" stroke-dasharray="5 5" vector-effect="non-scaling-stroke" />
+          <path d="${buildPath(portfolioSeries)}" fill="none" stroke="#343434" stroke-width="2" stroke-linejoin="round" stroke-linecap="round" vector-effect="non-scaling-stroke" />
+        </svg>`;
+    }
+    const benchmarkMonthsElement = document.getElementById('benchmark-months');
+    if (benchmarkMonthsElement) {
+      benchmarkMonthsElement.innerHTML = benchmarkMonths.map(m => `<span>${m}</span>`).join('');
+    }
+  }
 
-        async function logout() {
-            await fetch('/api/auth/logout', { method: 'POST' });
-            window.location.reload();
-        }
+  // ================= FILE SELECTION FEEDBACK =================
+  document.querySelectorAll('.file-input').forEach(input => {
+    input.addEventListener('change', (e) => {
+      const file = e.target.files[0];
+      const dropzone = e.target.closest('.dropzone');
+      if (!dropzone) return;
+      const textSpan = dropzone.querySelector('.dropzone-text');
+      if (!textSpan) return;
 
-        // Visualization
-        document.addEventListener('DOMContentLoaded', function() {
-            // Render chart
-            const chartDataEl = document.getElementById('chart-data');
-            if (chartDataEl) {
-                const chartData = JSON.parse(chartDataEl.dataset.chart);
-                const ctx = document.getElementById('allocationChart').getContext('2d');
-                new Chart(ctx, {
-                    type: 'doughnut',
-                    data: {
-                        labels: chartData.labels,
-                        datasets: [{
-                            data: chartData.weights,
-                            backgroundColor: ['#4F46E5', '#7C3AED', '#DB2777', '#F59E0B', '#10B981', '#06B6D4', '#3B82F6', '#8B5CF6'],
-                            hoverOffset: 15
-                        }]
-                    },
-                    options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } } }
-                });
-            }
+      if (file) {
+        textSpan.textContent = `Vybráno: ${file.name}`;
+        textSpan.className = 'dropzone-text text-xs font-medium text-gain';
+        dropzone.classList.add('border-gain', 'bg-gain/5');
+      } else {
+        textSpan.innerHTML = 'Přetáhněte CSV nebo <span class="font-medium text-foreground underline underline-offset-2">vyberte soubor</span>';
+        textSpan.className = 'dropzone-text text-xs text-muted-foreground';
+        dropzone.classList.remove('border-gain', 'bg-gain/5');
+      }
+    });
+  });
 
-            // Render AI Analysis
-            const aiDataEl = document.getElementById('ai-analysis-data');
-            const aiRenderEl = document.getElementById('ai-analysis-rendered');
-            if (aiDataEl && aiRenderEl) {
-                const rawMarkdown = aiDataEl.dataset.rawMarkdown;
-                if (rawMarkdown) {
-                    aiRenderEl.innerHTML = DOMPurify.sanitize(marked.parse(rawMarkdown));
-                }
-            }
-        });
-    </script>
-</body>
-</html>
+  // ================= ACTIVE CHAT CLIENT LOGIC =================
+  const chatLog = document.getElementById('chat-log');
+  const chatInput = document.getElementById('chat-input');
+
+  document.getElementById('chat-form').addEventListener('submit', (e) => {
+    e.preventDefault();
+    const text = chatInput.value.trim();
+    if (!text) return;
+    const safe = text.replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+
+    // Append User Message
+    const userWrap = document.createElement('div');
+    userWrap.className = 'flex justify-end';
+    userWrap.innerHTML = `<div class="max-w-[80%] rounded-sm bg-secondary px-4 py-2.5 text-sm text-foreground">${safe}</div>`;
+    chatLog.appendChild(userWrap);
+
+    // Mock AI response
+    const aiWrap = document.createElement('div');
+    aiWrap.className = 'flex justify-start';
+    aiWrap.innerHTML = `<div class="max-w-[85%] rounded-sm border border-border bg-card px-4 py-3 text-sm leading-relaxed text-foreground"><p>Analyzuji vaše pozice… Na základě aktuálních vah je <strong class="font-semibold">diverzifikace na dobré úrovni</strong>, největší jednotlivé riziko představuje pozice <strong class="font-semibold">AAPL (18 %)</strong>.</p></div>`;
+    chatLog.appendChild(aiWrap);
+
+    chatInput.value = '';
+    chatLog.scrollTop = chatLog.scrollHeight;
+  });
+</script>
+{% endblock %}

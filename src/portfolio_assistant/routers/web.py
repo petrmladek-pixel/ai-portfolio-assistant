@@ -4,8 +4,8 @@ from decimal import Decimal
 from pathlib import Path
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, Form, HTTPException
-from fastapi.responses import RedirectResponse
+from fastapi import APIRouter, Depends, Form, HTTPException, Request
+from fastapi.responses import HTMLResponse, RedirectResponse
 from fastapi.templating import Jinja2Templates
 from sqlmodel import Session
 
@@ -81,6 +81,13 @@ def get_portfolio_service() -> PortfolioService:
     return PortfolioService()
 
 
+@router.get("/dashboard", include_in_schema=False)
+async def dashboard_redirect(request: Request) -> RedirectResponse:
+    """Redirect the dashboard alias to the canonical dashboard route."""
+    query = f"?{request.url.query}" if request.url.query else ""
+    return RedirectResponse(url=f"/{query}", status_code=303)
+
+
 @router.post("/portfolios")
 async def create_portfolio_web(
     name: Annotated[str, Form()],
@@ -98,3 +105,38 @@ async def create_portfolio_web(
             status_code=500, detail="Failed to create portfolio"
         ) from None
     return RedirectResponse("/", status_code=303)
+
+
+@router.post("/portfolio/create")
+async def create_portfolio_endpoint(
+    name: Annotated[str, Form()],
+    current_user: Annotated[User, Depends(get_current_user)],
+    session: Annotated[Session, Depends(get_db_session)],
+    portfolio_service: Annotated[PortfolioService, Depends(get_portfolio_service)],
+) -> RedirectResponse:
+    """Create a portfolio from the web interface."""
+    user_id = get_persisted_user_id(current_user)
+    try:
+        new_portfolio = portfolio_service.create(
+            session, name.strip(), "DEGIRO", user_id
+        )
+    except PersistenceError:
+        raise HTTPException(
+            status_code=500, detail="Failed to create portfolio"
+        ) from None
+    return RedirectResponse(
+        url=f"/dashboard?portfolio_id={new_portfolio.id}",
+        status_code=303,
+    )
+
+
+@router.get("/login", response_class=HTMLResponse, include_in_schema=False)
+async def login_page(request: Request) -> HTMLResponse:
+    """Render the login page."""
+    return templates.TemplateResponse(request, "login.html", {})
+
+
+@router.get("/register", response_class=HTMLResponse)
+async def register_page(request: Request) -> HTMLResponse:
+    """Render the registration page."""
+    return templates.TemplateResponse(request, "register.html", {})

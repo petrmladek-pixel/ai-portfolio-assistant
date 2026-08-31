@@ -1,0 +1,32 @@
+<section class="rounded-sm border border-border bg-card">
+  <div class="flex items-baseline gap-2 border-b border-border px-6 py-4">
+    <h3 class="text-[11px] font-semibold uppercase tracking-wider text-foreground">
+      Všechny pozice
+    </h3>
+    <span id="positions-count" class="font-mono text-xs text-muted-foreground">
+      ({{ positions | length }} aktiv)
+    </span>
+  </div>
+  <div class="overflow-x-auto">
+    <table class="w-full min-w-[520px] border-collapse text-sm">
+      <thead>
+        <tr class="border-b border-border text-left">
+          <th class="px-6 py-3 text-[11px] font-medium uppercase tracking-wider text-muted-foreground">Ticker</th>
+          <th class="px-6 py-3 text-[11px] font-medium uppercase tracking-wider text-muted-foreground hidden sm:table-cell">Název</th>
+          <th class="px-6 py-3 text-right text-[11px] font-medium uppercase tracking-wider text-muted-foreground">Hodnota</th>
+          <th class="px-6 py-3 text-right text-[11px] font-medium uppercase tracking-wider text-muted-foreground">Váha</th>
+        </tr>
+      </thead>
+      <tbody id="positions-body">
+        {% for p in positions %}
+        <tr class="border-b border-border transition-colors last:border-0 hover:bg-secondary/60">
+          <td class="px-6 py-3 font-mono font-medium text-foreground">{{ p.ticker }}</td>
+          <td class="px-6 py-3 text-muted-foreground hidden sm:table-cell">{{ p.name }}</td>
+          <td class="px-6 py-3 text-right font-mono text-foreground">{{ p.value_formatted }} CZK</td>
+          <td class="px-6 py-3 text-right font-mono text-foreground">{{ p.weight }}&nbsp;%</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</section>

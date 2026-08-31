@@ -3,14 +3,19 @@
 import logging
 from typing import Annotated, Any
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile, status
 from sqlalchemy.exc import SQLAlchemyError
 from sqlmodel import Session
 
+from portfolio_assistant.core.exceptions import (
+    InvalidImportTypeError,
+    PersistenceError,
+    PortfolioImportError,
+    PortfolioNotFoundError,
+)
 from portfolio_assistant.models.portfolio import PortfolioCreate
 
 from ..core.database import get_db_session
-from ..core.exceptions import PersistenceError
 from ..crud import portfolio as portfolio_crud
 from ..dependencies import get_current_user, get_persisted_user_id
 from ..models.db_models import Portfolio
@@ -53,39 +58,26 @@ async def get_my_portfolio(
     current_user: Annotated[User, Depends(get_current_user)],
     session: Annotated[Session, Depends(get_db_session)],
 ) -> dict[str, Any]:
-    """
-    Fetch the saved positions from the database for the logged-in user.
-    """
+    """Fetch the saved positions from the database for the logged-in user."""
     user_id = get_persisted_user_id(current_user)
     try:
         portfolio = portfolio_crud.get_first_portfolio_for_user(session, user_id)
-
         if not portfolio:
-            return {
-                "broker_name": "None",
-                "positions": [],
+            return {"broker_name": "None", "positions": []}
+
+        positions_data = [
+            {
+                "asset_name": pos.asset_name,
+                "ticker": pos.ticker,
+                "isin": pos.isin,
+                "currency": pos.currency,
+                "quantity": float(pos.quantity),
+                "unit_cost": float(pos.unit_cost),
+                "acquisition_date": pos.acquisition_date.isoformat(),
             }
-
-        # Build position representation
-        positions_data = []
-        for pos in portfolio.positions:
-            positions_data.append(
-                {
-                    "asset_name": pos.asset_name,
-                    "ticker": pos.ticker,
-                    "isin": pos.isin,
-                    "currency": pos.currency,
-                    "quantity": float(pos.quantity),
-                    "unit_cost": float(pos.unit_cost),
-                    "acquisition_date": pos.acquisition_date.isoformat(),
-                }
-            )
-
-        return {
-            "broker_name": portfolio.name,
-            "positions": positions_data,
-        }
-
+            for pos in portfolio.positions
+        ]
+        return {"broker_name": portfolio.name, "positions": positions_data}
     except SQLAlchemyError:
         logger.exception("Database error while retrieving user portfolio")
         raise HTTPException(
@@ -94,6 +86,53 @@ async def get_my_portfolio(
         ) from None
     except Exception:
         logger.exception("Unexpected error while retrieving user portfolio")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="An unexpected error occurred.",
+        ) from None
+
+
+@router.post("/import", status_code=status.HTTP_200_OK)
+async def import_portfolio(
+    portfolio_id: Annotated[int, Form()],
+    import_type: Annotated[str, Form()],
+    file: Annotated[UploadFile, File()],
+    current_user: Annotated[User, Depends(get_current_user)],
+    session: Annotated[Session, Depends(get_db_session)],
+    portfolio_service: Annotated[PortfolioService, Depends(get_portfolio_service)],
+) -> dict[str, Any]:
+    """Import portfolio positions from an uploaded CSV file."""
+    user_id = get_persisted_user_id(current_user)
+    try:
+        await portfolio_service.process_portfolio_import(
+            session, user_id, portfolio_id, import_type, file
+        )
+        return {
+            "status": "success",
+            "message": "Positions successfully imported.",
+        }
+    except PortfolioNotFoundError:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Portfolio not found.",
+        ) from None
+    except InvalidImportTypeError:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Unsupported import type.",
+        ) from None
+    except PersistenceError:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Database persistence failed.",
+        ) from None
+    except PortfolioImportError as error:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=str(error),
+        ) from None
+    except Exception:
+        logger.exception("Unexpected error during portfolio import")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="An unexpected error occurred.",

@@ -1,0 +1,37 @@
+<div class="mt-6 rounded-sm border border-border bg-card p-6 sm:p-8">
+  <p class="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
+    Celková hodnota
+  </p>
+  <div class="mt-3 flex flex-wrap items-end gap-x-5 gap-y-3">
+    <p class="font-mono text-4xl font-semibold tracking-tight text-foreground sm:text-5xl">
+      <span id="total-value">{{ total_value_formatted | default('2 953 870,58') }}</span>
+      <span class="ml-2 text-xl font-medium text-muted-foreground sm:text-2xl">CZK</span>
+    </p>
+    <span class="mb-1 inline-flex items-center gap-1 rounded-sm bg-gain/10 px-2 py-1 text-sm font-medium text-gain">
+      <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M7 7h10v10"/><path d="M7 17 17 7"/></svg>
+      <span id="month-change">+{{ month_change_pct | default('4,2') }}% (Tento měsíc)</span>
+    </span>
+  </div>
+
+  <div class="my-6 h-px w-full bg-border"></div>
+
+  <!-- Grid of 4 key stats -->
+  <dl class="grid grid-cols-2 gap-6 sm:grid-cols-4">
+    <div>
+      <dt class="text-[11px] uppercase tracking-wider text-muted-foreground">Aktiv</dt>
+      <dd class="mt-1 font-mono text-lg font-medium text-foreground">{{ positions_count | default('18') }}</dd>
+    </div>
+    <div>
+      <dt class="text-[11px] uppercase tracking-wider text-muted-foreground">Sektorů</dt>
+      <dd class="mt-1 font-mono text-lg font-medium text-foreground">{{ sector_count | default('5+') }}</dd>
+    </div>
+    <div>
+      <dt class="text-[11px] uppercase tracking-wider text-muted-foreground">Regionů</dt>
+      <dd class="mt-1 font-mono text-lg font-medium text-foreground">{{ region_count | default('5') }}</dd>
+    </div>
+    <div>
+      <dt class="text-[11px] uppercase tracking-wider text-muted-foreground">Denní změna</dt>
+      <dd class="mt-1 font-mono text-lg font-medium text-foreground">{{ daily_change_pct | default('+0,8 %') }}</dd>
+    </div>
+  </dl>
+</div>

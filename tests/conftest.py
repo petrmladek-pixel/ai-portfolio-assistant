@@ -1,12 +1,16 @@
-"""Global pytest configuration and shared test fixtures."""
-
 import os
 
 import pytest
+from sqlalchemy.pool import StaticPool
+from sqlmodel import Session, SQLModel, create_engine
 
 from portfolio_assistant.config import Settings
+from portfolio_assistant.core import database
 
-# Vynucení testovacího prostředí
+# Explicitly import all db models so SQLModel registers them before create_all
+from portfolio_assistant.models.db_models import Portfolio, Position  # noqa: F401
+from portfolio_assistant.models.user import User  # noqa: F401
+
 os.environ["PORTFOLIO_ENVIRONMENT"] = "testing"
 
 
@@ -16,21 +20,25 @@ def override_settings() -> Settings:
     return Settings(
         environment="testing",
         debug=True,
+        enable_demo_data=False,
     )
 
 
 @pytest.fixture(name="db_session")
 def db_session_fixture():
-    """Shared database session fixture."""
-    from sqlmodel import Session, SQLModel
+    """Provide an in-memory SQLite session that retains its schema."""
+    test_engine = create_engine(
+        "sqlite:///:memory:",
+        connect_args={"check_same_thread": False},
+        poolclass=StaticPool,
+    )
+    old_engine = database.engine
+    database.engine = test_engine
 
-    from portfolio_assistant.core.database import engine
-
-    # Setup - Ensure data directory exists
-    os.makedirs("./data", exist_ok=True)
-    # Setup - Use SQLModel to create tables
-    SQLModel.metadata.create_all(engine)
-    with Session(engine) as session:
-        yield session
-    # Teardown - Drop tables after test
-    SQLModel.metadata.drop_all(engine)
+    SQLModel.metadata.create_all(test_engine)
+    try:
+        with Session(test_engine) as session:
+            yield session
+    finally:
+        SQLModel.metadata.drop_all(test_engine)
+        database.engine = old_engine
