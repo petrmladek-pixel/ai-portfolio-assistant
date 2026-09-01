@@ -162,7 +162,7 @@ async def test_value_portfolio_happy_path(
         assert pos.weight == pytest.approx(expected_weight)
 
     mock_market_data_service.get_current_prices.assert_called_once_with(
-        sorted(["MSFT", "GOOG", "BMW", "CEZ"])
+        sorted(["MSFT", "GOOG", "BMW", "CEZ"]), None
     )
     assert mock_market_data_service.get_exchange_rate.call_count == 2
     mock_market_data_service.get_exchange_rate.assert_any_call(
@@ -237,7 +237,7 @@ async def test_value_portfolio_single_currency(
     assert total_weights == pytest.approx(Decimal("1.0"))
 
     mock_market_data_service.get_current_prices.assert_called_once_with(
-        sorted(["CEZ", "KOFOLA"])
+        sorted(["CEZ", "KOFOLA"]), None
     )
     mock_market_data_service.get_exchange_rate.assert_not_called()
 

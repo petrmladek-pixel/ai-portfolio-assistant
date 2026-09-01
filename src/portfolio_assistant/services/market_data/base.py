@@ -6,17 +6,21 @@ and currency exchange rates from various financial data providers.
 
 from abc import ABC, abstractmethod
 from decimal import Decimal
+from typing import Any
 
 
 class BaseMarketDataService(ABC):
     """Abstract base class for market data services."""
 
     @abstractmethod
-    async def get_current_prices(self, tickers: list[str]) -> dict[str, Decimal]:
+    async def get_current_prices(
+        self, tickers: list[str], db_session: Any = None
+    ) -> dict[str, Decimal]:
         """Fetch current market prices for a list of tickers asynchronously.
 
         Args:
             tickers (list[str]): A list of ticker symbols.
+            db_session (Any, optional): Database session for caching.
 
         Returns:
             dict[str, Decimal]: A dictionary mapping each ticker (uppercase)

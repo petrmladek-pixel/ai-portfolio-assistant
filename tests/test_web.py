@@ -154,6 +154,11 @@ def test_get_dashboard():
     mock_user = User(id=1, email="admin@example.com", hashed_password="hash")
     app.dependency_overrides[get_optional_current_user] = lambda: mock_user
     app.dependency_overrides[get_current_user] = lambda: mock_user
+
+    # Mock services to prevent real API calls
+    mock_imported_portfolio, mock_valued_portfolio = _create_mock_portfolio_data()
+    _setup_mock_services(mock_imported_portfolio, mock_valued_portfolio)
+
     try:
         response = client.get("/")
         assert response.status_code == 200

@@ -2,6 +2,7 @@
 
 from datetime import UTC, datetime
 from decimal import Decimal
+from typing import Any
 
 from portfolio_assistant.exceptions.valuation import ValuationError
 from portfolio_assistant.models.portfolio import Currency, ImportedPortfolio
@@ -25,12 +26,14 @@ class ValuationService(BaseValuationService):
         self,
         portfolio: ImportedPortfolio,
         target_currency: Currency = Currency.CZK,
+        db_session: Any = None,
     ) -> ValuedPortfolio:
         """Calculate the current value and weights of all positions in the portfolio.
 
         Args:
             portfolio: The imported portfolio with positions.
             target_currency: The currency in which the portfolio should be valued.
+            db_session: Optional database session for price caching.
 
         Returns:
             ValuedPortfolio: The portfolio with current valuations and weights.
@@ -51,7 +54,9 @@ class ValuationService(BaseValuationService):
         tickers = sorted(list({pos.ticker for pos in portfolio.positions}))
 
         try:
-            prices = await self._market_data_service.get_current_prices(tickers)
+            prices = await self._market_data_service.get_current_prices(
+                tickers, db_session
+            )
         except Exception as e:
             raise ValuationError(f"Failed to fetch market prices: {e}") from e
 
@@ -106,6 +111,9 @@ class ValuationService(BaseValuationService):
                     weight=Decimal("0"),  # Calculated in second pass
                 )
             )
+
+        # Sort positions by total_value_target descending for consistent ordering
+        valued_positions.sort(key=lambda vp: vp.total_value_target, reverse=True)
 
         # Second pass: calculate weights
         if total_value > 0:

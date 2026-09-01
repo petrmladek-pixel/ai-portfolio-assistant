@@ -1,6 +1,7 @@
 """Abstract base class for the valuation service."""
 
 from abc import ABC, abstractmethod
+from typing import Any
 
 from portfolio_assistant.models.portfolio import Currency, ImportedPortfolio
 from portfolio_assistant.models.valuation import ValuedPortfolio
@@ -14,12 +15,14 @@ class BaseValuationService(ABC):
         self,
         portfolio: ImportedPortfolio,
         target_currency: Currency = Currency.CZK,
+        db_session: Any = None,
     ) -> ValuedPortfolio:
         """Calculate the current value and weights of all positions in the portfolio.
 
         Args:
             portfolio: The imported portfolio with positions.
             target_currency: The currency in which the portfolio should be valued.
+            db_session: Optional database session for price caching.
 
         Returns:
             ValuedPortfolio: The portfolio with current valuations and weights.

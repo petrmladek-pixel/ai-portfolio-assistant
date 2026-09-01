@@ -29,6 +29,9 @@ from portfolio_assistant.models.portfolio import (
 from portfolio_assistant.models.user import User
 from portfolio_assistant.models.valuation import ValuedPortfolio
 from portfolio_assistant.services.ai.gemini import GeminiAIService
+from portfolio_assistant.services.portfolio_aggregation_service import (
+    PortfolioAggregationService,
+)
 from portfolio_assistant.services.portfolio_merger import PortfolioMerger
 from portfolio_assistant.services.portfolio_service import PortfolioService
 from portfolio_assistant.services.valuation.engine import ValuationService
@@ -37,6 +40,7 @@ from ..core.database import get_db_session
 from .web import (
     format_currency,
     get_gemini_service,
+    get_portfolio_aggregation_service,
     get_portfolio_merger,
     get_portfolio_service,
     get_valuation_service,
@@ -72,6 +76,9 @@ async def dashboard_get(
     gemini_service: Annotated[GeminiAIService, Depends(get_gemini_service)],
     portfolio_merger: Annotated[PortfolioMerger, Depends(get_portfolio_merger)],
     portfolio_service: Annotated[PortfolioService, Depends(get_portfolio_service)],
+    portfolio_aggregation: Annotated[
+        PortfolioAggregationService, Depends(get_portfolio_aggregation_service)
+    ],
     session: Annotated[Session, Depends(get_db_session)],
     portfolio_id: str | int | None = None,
     current_user: Annotated[User | None, Depends(get_optional_current_user)] = None,
@@ -124,9 +131,17 @@ async def dashboard_get(
         if imported:
             merged = _merge_portfolios(imported, portfolio_merger)
             valued = await valuation_service.value_portfolio_async(
-                merged, target_currency=Currency.CZK
+                merged, target_currency=Currency.CZK, db_session=session
             )
             context.update(_valuation_context(valued))
+
+            # Get portfolio allocation data for sector and country charts
+            # Use the first portfolio's ID for allocation (or merged portfolio)
+            if selected and selected[0].id is not None:
+                allocation = portfolio_aggregation.get_portfolio_allocation(
+                    selected[0].id
+                )
+                context.update(_allocation_context(allocation))
 
             # NOTE FOR PRODUCTION: Awaiting LLM API on page load is slow.
             # In next milestone, load this asynchronously via an API route.
@@ -214,15 +229,21 @@ def _get_guest_context() -> dict[str, Any]:
             },
         ],
         "top_weights": [
-            {"label": "AAPL", "value": 40, "color": "#475569"},
-            {"label": "AXP", "value": 12, "color": "#6b7280"},
-            {"label": "BAC", "value": 10, "color": "#0f766e"},
-            {"label": "KO", "value": 8, "color": "#b45309"},
-            {"label": "OXY", "value": 6, "color": "#374151"},
+            {"label": "Apple Inc.", "value": 40, "color": "#0f172a"},
+            {"label": "American Express", "value": 12, "color": "#0d9488"},
+            {"label": "Bank of America", "value": 10, "color": "#3b82f6"},
+            {"label": "The Coca-Cola Co.", "value": 8, "color": "#d97706"},
+            {"label": "Occidental Petroleum", "value": 6, "color": "#6366f1"},
         ],
         "chart_data_json": json.dumps(
             {
-                "labels": ["AAPL", "AXP", "BAC", "KO", "OXY"],
+                "labels": [
+                    "Apple Inc.",
+                    "American Express",
+                    "Bank of America",
+                    "The Coca-Cola Co.",
+                    "Occidental Petroleum",
+                ],
                 "weights": [40, 12, 10, 8, 6],
             }
         ),
@@ -295,7 +316,18 @@ def _merge_portfolios(
 
 
 def _valuation_context(valued: ValuedPortfolio) -> dict[str, Any]:
-    colors = ["#475569", "#6b7280", "#0f766e", "#b45309", "#374151"]
+    # Muted Corporate Slate palette for maximum contrast and legibility
+    colors = [
+        "#0f172a",
+        "#0d9488",
+        "#3b82f6",
+        "#d97706",
+        "#6366f1",
+        "#16a34a",
+        "#be123c",
+        "#475569",
+        "#cbd5e1",
+    ]
     formatted_positions = [
         {
             "ticker": pos.ticker,
@@ -307,7 +339,7 @@ def _valuation_context(valued: ValuedPortfolio) -> dict[str, Any]:
     ]
     top_weights = [
         {
-            "label": pos.ticker,
+            "label": pos.name or pos.ticker,
             "value": round(float(pos.weight * 100), 1),
             "color": colors[i % len(colors)],
         }
@@ -330,4 +362,41 @@ def _valuation_context(valued: ValuedPortfolio) -> dict[str, Any]:
         # including real yfinance sectors/countries
         "sector_allocation_json": json.dumps([{"label": "Akcie", "value": 100}]),
         "geo_allocation_json": json.dumps([{"label": "Globalni", "value": 100}]),
+    }
+
+
+def _allocation_context(allocation: dict[str, Any]) -> dict[str, Any]:
+    """Convert allocation data to context for Chart.js donut charts.
+
+    Args:
+        allocation: Dictionary with sectors and countries allocation data.
+
+    Returns:
+        dict[str, Any]: Context with JSON strings for sector and geo allocation.
+    """
+    # Convert sectors data to list format for Chart.js
+    sectors_list = [
+        {"label": label, "value": value}
+        for label, value in zip(
+            allocation["sectors"]["labels"],
+            allocation["sectors"]["data"],
+            strict=True,
+        )
+    ]
+
+    # Convert countries data to list format for Chart.js
+    countries_list = [
+        {"label": label, "value": value}
+        for label, value in zip(
+            allocation["countries"]["labels"],
+            allocation["countries"]["data"],
+            strict=True,
+        )
+    ]
+
+    return {
+        "sector_allocation_json": json.dumps(sectors_list),
+        "geo_allocation_json": json.dumps(countries_list),
+        "sector_count": str(len(allocation["sectors"]["labels"])),
+        "region_count": str(len(allocation["countries"]["labels"])),
     }
