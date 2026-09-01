@@ -3,6 +3,7 @@
 import logging
 from datetime import UTC, datetime, timedelta
 from decimal import Decimal
+from time import perf_counter
 
 import yfinance as yf
 from sqlmodel import Session
@@ -43,6 +44,7 @@ class YFinanceService:
         Returns:
             TickerMetadata: The cached or freshly fetched metadata record.
         """
+        started_at = perf_counter()
         # Try to get cached metadata
         cached = get_ticker_metadata(self.db, ticker)
 
@@ -52,11 +54,25 @@ class YFinanceService:
             if updated_at.tzinfo is None:
                 # Assume naive datetime is UTC (as per our model default)
                 updated_at = updated_at.replace(tzinfo=UTC)
+                logger.info(
+                    "[PROFILE] metadata cache timestamp for %s was naive; "
+                    "normalized to UTC",
+                    ticker,
+                )
 
             # Check if cache is still valid (less than 30 days old)
             cache_expiry = timedelta(days=30)
             if datetime.now(UTC) - updated_at < cache_expiry:
+                logger.info(
+                    "[PROFILE] get_metadata for %s took %.3fs (cache hit)",
+                    ticker,
+                    perf_counter() - started_at,
+                )
                 return cached
+
+            logger.info("[PROFILE] metadata cache expired for %s", ticker)
+        else:
+            logger.info("[PROFILE] metadata cache miss for %s", ticker)
 
         # Cache miss or expired - fetch from Yahoo Finance
         sector = "Unknown"
@@ -81,11 +97,17 @@ class YFinanceService:
             country = str(country) if country else "Unknown"
         except Exception:
             # On any error, use "Unknown" to prevent API slamming
+            logger.exception("Yahoo Finance metadata fetch failed for %s", ticker)
             sector = "Unknown"
             country = "Unknown"
 
         # Save to cache (even on failure to protect the API)
         saved = save_ticker_metadata(self.db, ticker, sector, country)
+        logger.info(
+            "[PROFILE] get_metadata for %s took %.3fs (Yahoo Finance fetch)",
+            ticker,
+            perf_counter() - started_at,
+        )
         return saved
 
     def get_current_price(self, ticker: str) -> Decimal:
@@ -97,11 +119,18 @@ class YFinanceService:
         Returns:
             Decimal: The current price as a Decimal, or Decimal("0.00") on failure.
         """
+        started_at = perf_counter()
         # Try to get cached price first
         cached = get_ticker_price(self.db, ticker)
         if cached is not None:
-            logger.debug(f"Using cached price for {ticker}: {cached.price}")
+            logger.info(
+                "[PROFILE] get_current_price for %s took %.3fs (cache hit)",
+                ticker,
+                perf_counter() - started_at,
+            )
             return cached.price
+
+        logger.info("[PROFILE] price cache miss or expired for %s", ticker)
 
         # Cache miss or expired - fetch from Yahoo Finance
         try:
@@ -119,8 +148,17 @@ class YFinanceService:
             price_decimal = Decimal(str(price))
             # Save to cache
             save_ticker_price(self.db, ticker, price_decimal)
-            logger.debug(f"Fetched and cached price for {ticker}: {price_decimal}")
+            logger.info(
+                "[PROFILE] get_current_price for %s took %.3fs (Yahoo Finance fetch)",
+                ticker,
+                perf_counter() - started_at,
+            )
             return price_decimal
         except Exception as e:
             logger.warning(f"Failed to fetch price for {ticker}: {e}")
+            logger.info(
+                "[PROFILE] get_current_price for %s took %.3fs (Yahoo Finance failure)",
+                ticker,
+                perf_counter() - started_at,
+            )
             return Decimal("0.00")

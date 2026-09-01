@@ -1,5 +1,6 @@
 """Database operations for ticker price caching."""
 
+import logging
 from datetime import UTC, datetime, timedelta
 from decimal import Decimal
 
@@ -9,6 +10,7 @@ from portfolio_assistant.models.ticker_price import TickerPrice
 
 # Cache TTL: 15 minutes
 PRICE_CACHE_TTL = timedelta(minutes=15)
+logger = logging.getLogger(__name__)
 
 
 def get_ticker_price(db: Session, ticker: str) -> TickerPrice | None:
@@ -23,10 +25,16 @@ def get_ticker_price(db: Session, ticker: str) -> TickerPrice | None:
     updated_at = cached.updated_at
     if updated_at.tzinfo is None:
         updated_at = updated_at.replace(tzinfo=UTC)
+        logger.info(
+            "[PROFILE] price cache timestamp for %s was naive; normalized to UTC",
+            ticker,
+        )
 
     # Check if cache is still valid (less than 15 minutes old)
     if datetime.now(UTC) - updated_at < PRICE_CACHE_TTL:
         return cached
+
+    logger.info("[PROFILE] price cache expired for %s", ticker)
 
     return None
 
@@ -69,6 +77,11 @@ def get_ticker_prices(db: Session, tickers: list[str]) -> dict[str, Decimal]:
             updated_at = cached.updated_at
             if updated_at.tzinfo is None:
                 updated_at = updated_at.replace(tzinfo=UTC)
+                logger.info(
+                    "[PROFILE] price cache timestamp for %s was naive; "
+                    "normalized to UTC",
+                    ticker,
+                )
 
             if current_time - updated_at < PRICE_CACHE_TTL:
                 prices[ticker] = cached.price

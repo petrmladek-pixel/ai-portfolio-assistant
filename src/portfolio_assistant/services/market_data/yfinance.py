@@ -8,6 +8,7 @@ import asyncio
 import logging
 from datetime import timedelta
 from decimal import ConversionSyntax, Decimal
+from time import perf_counter
 from typing import Any
 
 import pandas as pd
@@ -85,6 +86,7 @@ class YFinanceMarketDataService(BaseMarketDataService):
         if not tickers:
             return {}
 
+        started_at = perf_counter()
         import re
 
         tickers_upper = [t.upper() for t in tickers]
@@ -102,7 +104,12 @@ class YFinanceMarketDataService(BaseMarketDataService):
 
         if not tickers_to_fetch:
             # All prices were cached
-            logger.debug("All prices served from cache")
+            logger.info(
+                "[PROFILE] get_current_prices for %d tickers took %.3fs "
+                "(all cache hits)",
+                len(tickers_upper),
+                perf_counter() - started_at,
+            )
             return cached_prices
 
         resolved_tickers: list[str] = []
@@ -184,6 +191,14 @@ class YFinanceMarketDataService(BaseMarketDataService):
 
         # Combine cached and fetched prices
         result = {**cached_prices, **fetched_prices}
+        logger.info(
+            "[PROFILE] get_current_prices for %d tickers took %.3fs "
+            "(%d cache hits, %d Yahoo Finance fetches)",
+            len(tickers_upper),
+            perf_counter() - started_at,
+            len(cached_prices),
+            len(tickers_to_fetch),
+        )
         return result
 
     async def get_exchange_rate(self, from_currency: str, to_currency: str) -> Decimal:

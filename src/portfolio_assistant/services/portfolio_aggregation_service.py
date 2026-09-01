@@ -2,6 +2,7 @@
 
 import logging
 from decimal import Decimal
+from time import perf_counter
 from typing import Any
 
 from sqlmodel import Session, select
@@ -34,10 +35,17 @@ class PortfolioAggregationService:
             dict[str, Any]: Dictionary with sectors and countries allocation data
                 in a format suitable for Chart.js.
         """
+        started_at = perf_counter()
         # Fetch portfolio and positions
+        query_started_at = perf_counter()
         portfolio = self.db.exec(
             select(Portfolio).where(Portfolio.id == portfolio_id)
         ).first()
+        logger.info(
+            "[PROFILE] portfolio query for %s took %.3fs",
+            portfolio_id,
+            perf_counter() - query_started_at,
+        )
 
         if portfolio is None:
             logger.warning(f"Portfolio {portfolio_id} not found")
@@ -46,9 +54,16 @@ class PortfolioAggregationService:
                 "countries": {"labels": [], "data": []},
             }
 
+        query_started_at = perf_counter()
         positions = self.db.exec(
             select(Position).where(Position.portfolio_id == portfolio_id)
         ).all()
+        logger.info(
+            "[PROFILE] positions query for %s took %.3fs (%d rows)",
+            portfolio_id,
+            perf_counter() - query_started_at,
+            len(positions),
+        )
 
         if not positions:
             logger.warning(f"Portfolio {portfolio_id} has no positions")
@@ -63,6 +78,7 @@ class PortfolioAggregationService:
         total_value: Decimal = Decimal("0.00")
 
         # Calculate values and metadata for all positions first
+        loop_started_at = perf_counter()
         position_data = []
         for pos in positions:
             if pos.ticker == "CASH":
@@ -81,6 +97,13 @@ class PortfolioAggregationService:
                 country = metadata.country or "Unknown"
 
             position_data.append((pos, value, sector, country))
+
+        logger.info(
+            "[PROFILE] allocation loop for %s took %.3fs (%d positions)",
+            portfolio_id,
+            perf_counter() - loop_started_at,
+            len(positions),
+        )
 
         # Sort positions by value descending for consistent ordering
         position_data.sort(key=lambda x: x[1], reverse=True)
@@ -117,7 +140,13 @@ class PortfolioAggregationService:
                 data.append(float(percentage))
             return {"labels": labels, "data": data}
 
-        return {
+        allocation = {
             "sectors": to_percentages(sector_totals),
             "countries": to_percentages(country_totals),
         }
+        logger.info(
+            "[PROFILE] get_portfolio_allocation for %s took %.3fs",
+            portfolio_id,
+            perf_counter() - started_at,
+        )
+        return allocation

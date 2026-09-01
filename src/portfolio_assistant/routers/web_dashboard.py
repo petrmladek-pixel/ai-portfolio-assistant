@@ -4,6 +4,7 @@ import json
 import logging
 from collections.abc import Sequence
 from datetime import datetime
+from time import perf_counter
 from typing import Annotated, Any
 
 from fastapi import APIRouter, Depends, Request
@@ -28,7 +29,6 @@ from portfolio_assistant.models.portfolio import (
 )
 from portfolio_assistant.models.user import User
 from portfolio_assistant.models.valuation import ValuedPortfolio
-from portfolio_assistant.services.ai.gemini import GeminiAIService
 from portfolio_assistant.services.portfolio_aggregation_service import (
     PortfolioAggregationService,
 )
@@ -39,7 +39,6 @@ from portfolio_assistant.services.valuation.engine import ValuationService
 from ..core.database import get_db_session
 from .web import (
     format_currency,
-    get_gemini_service,
     get_portfolio_aggregation_service,
     get_portfolio_merger,
     get_portfolio_service,
@@ -73,7 +72,6 @@ EMPTY_DASHBOARD_CONTEXT: dict[str, Any] = {
 async def dashboard_get(
     request: Request,
     valuation_service: Annotated[ValuationService, Depends(get_valuation_service)],
-    gemini_service: Annotated[GeminiAIService, Depends(get_gemini_service)],
     portfolio_merger: Annotated[PortfolioMerger, Depends(get_portfolio_merger)],
     portfolio_service: Annotated[PortfolioService, Depends(get_portfolio_service)],
     portfolio_aggregation: Annotated[
@@ -129,9 +127,15 @@ async def dashboard_get(
         imported = _to_imported_portfolios(selected)
 
         if imported:
+            valuation_started_at = perf_counter()
             merged = _merge_portfolios(imported, portfolio_merger)
             valued = await valuation_service.value_portfolio_async(
                 merged, target_currency=Currency.CZK, db_session=session
+            )
+            logger.info(
+                "[PROFILE] portfolio valuation for %s took %.3fs",
+                selected_id,
+                perf_counter() - valuation_started_at,
             )
             context.update(_valuation_context(valued))
 
@@ -143,11 +147,9 @@ async def dashboard_get(
                 )
                 context.update(_allocation_context(allocation))
 
-            # NOTE FOR PRODUCTION: Awaiting LLM API on page load is slow.
-            # In next milestone, load this asynchronously via an API route.
-            context["ai_analysis_markdown"] = await gemini_service.analyze_portfolio(
-                valued.to_anonymized()
-            )
+            # The template does not render this value. Keep Gemini analysis on the
+            # upload workflow instead of blocking every portfolio switch on an API
+            # request whose result cannot be displayed here.
 
     except (PersistenceError, SQLAlchemyError):
         logger.exception("Database error while loading dashboard")
