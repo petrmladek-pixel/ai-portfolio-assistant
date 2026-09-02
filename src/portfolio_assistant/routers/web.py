@@ -14,6 +14,9 @@ from portfolio_assistant.services.ai.gemini import GeminiAIService
 from portfolio_assistant.services.market_data.yfinance import YFinanceMarketDataService
 from portfolio_assistant.services.parser.degiro import DegiroPortfolioParser
 from portfolio_assistant.services.parser.fio_broker import FioBrokerPortfolioParser
+from portfolio_assistant.services.portfolio_aggregation_service import (
+    PortfolioAggregationService,
+)
 from portfolio_assistant.services.portfolio_merger import PortfolioMerger
 from portfolio_assistant.services.portfolio_service import PortfolioService
 from portfolio_assistant.services.valuation.engine import ValuationService
@@ -44,9 +47,11 @@ def format_currency(value: Decimal) -> str:
 templates.env.filters["format_currency"] = format_currency
 
 
-def get_market_data_service() -> YFinanceMarketDataService:
-    """Provide the market data integration."""
-    return YFinanceMarketDataService()
+def get_market_data_service(
+    session: Annotated[Session, Depends(get_db_session)],
+) -> YFinanceMarketDataService:
+    """Provide the market data integration with database session for caching."""
+    return YFinanceMarketDataService(db_session=session)
 
 
 def get_valuation_service(
@@ -79,6 +84,13 @@ def get_portfolio_merger() -> PortfolioMerger:
 def get_portfolio_service() -> PortfolioService:
     """Provide the portfolio persistence service."""
     return PortfolioService()
+
+
+def get_portfolio_aggregation_service(
+    session: Annotated[Session, Depends(get_db_session)],
+) -> PortfolioAggregationService:
+    """Provide the portfolio aggregation service."""
+    return PortfolioAggregationService(session)
 
 
 @router.get("/dashboard", include_in_schema=False)

@@ -6,7 +6,9 @@ using the yfinance library to fetch current prices and exchange rates.
 
 import asyncio
 import logging
+from datetime import timedelta
 from decimal import ConversionSyntax, Decimal
+from time import perf_counter
 from typing import Any
 
 import pandas as pd
@@ -17,17 +19,44 @@ from portfolio_assistant.services.market_data.base import BaseMarketDataService
 
 logger = logging.getLogger(__name__)
 
+# Cache TTL: 15 minutes for prices
+PRICE_CACHE_TTL = timedelta(minutes=15)
+
+
+def _get_ticker_prices(db: Any, tickers: list[str]) -> dict[str, Decimal]:
+    """Get cached prices for multiple tickers."""
+    try:
+        from portfolio_assistant.crud.ticker_price import get_ticker_prices
+
+        return get_ticker_prices(db, tickers)
+    except ImportError:
+        return {}
+
+
+def _save_ticker_prices(db: Any, prices: dict[str, Decimal]) -> None:
+    """Save prices to cache."""
+    try:
+        from portfolio_assistant.crud.ticker_price import save_ticker_prices
+
+        save_ticker_prices(db, prices)
+    except ImportError:
+        pass
+
 
 class YFinanceMarketDataService(BaseMarketDataService):
-    """Market data service using Yahoo Finance."""
+    """Market data service using Yahoo Finance with optional caching."""
 
-    def __init__(self, isin_resolver: YahooISINResolver | None = None) -> None:
-        """Initialize the base parser with an optional ISIN resolver.
+    def __init__(
+        self, isin_resolver: YahooISINResolver | None = None, db_session: Any = None
+    ) -> None:
+        """Initialize the base parser with an optional ISIN resolver and DB session.
 
         Args:
             isin_resolver: Optional YahooISINResolver instance.
+            db_session: Optional SQLModel database session for caching.
         """
         self.isin_resolver = isin_resolver or YahooISINResolver()
+        self.db_session = db_session
 
     def _get_currency(self, ticker: str) -> str:
         """Helper to fetch the currency of a ticker using yfinance's fast_info."""
@@ -38,11 +67,17 @@ class YFinanceMarketDataService(BaseMarketDataService):
         except Exception:
             return ""
 
-    async def get_current_prices(self, tickers: list[str]) -> dict[str, Decimal]:
+    async def get_current_prices(
+        self, tickers: list[str], db_session: Any = None
+    ) -> dict[str, Decimal]:
         """Fetch current market prices for a list of tickers asynchronously.
+
+        Uses cached prices if available (15-minute TTL) to avoid redundant API calls.
 
         Args:
             tickers (list[str]): A list of ticker symbols or ISINs.
+            db_session (Any, optional): Database session for caching. If provided,
+                overrides the instance session.
 
         Returns:
             dict[str, Decimal]: A dictionary mapping each ticker (uppercase)
@@ -51,14 +86,37 @@ class YFinanceMarketDataService(BaseMarketDataService):
         if not tickers:
             return {}
 
+        started_at = perf_counter()
         import re
 
         tickers_upper = [t.upper() for t in tickers]
+
+        # Try to get cached prices first if we have a database session
+        # Use the provided session or fall back to the instance session
+        session_to_use = db_session if db_session is not None else self.db_session
+        cached_prices: dict[str, Decimal] = {}
+        if session_to_use is not None:
+            cached_prices = _get_ticker_prices(session_to_use, tickers_upper)
+            logger.debug(f"Found {len(cached_prices)} cached prices")
+
+        # Identify which tickers still need fetching
+        tickers_to_fetch = [t for t in tickers_upper if t not in cached_prices]
+
+        if not tickers_to_fetch:
+            # All prices were cached
+            logger.info(
+                "[PROFILE] get_current_prices for %d tickers took %.3fs "
+                "(all cache hits)",
+                len(tickers_upper),
+                perf_counter() - started_at,
+            )
+            return cached_prices
+
         resolved_tickers: list[str] = []
         ticker_map: dict[str, str] = {}
 
         # 1. Asynchronously resolve all ISINs before downloading
-        for t in tickers_upper:
+        for t in tickers_to_fetch:
             if re.match(r"^[A-Z]{2}[A-Z0-9]{9}[0-9]$", t):
                 resolved = await self.isin_resolver.resolve_isin(t)
                 if resolved:
@@ -73,7 +131,7 @@ class YFinanceMarketDataService(BaseMarketDataService):
         if not resolved_tickers:
             msg = (
                 f"Could not fetch prices for tickers: "
-                f"{', '.join(sorted(tickers_upper))}"
+                f"{', '.join(sorted(tickers_to_fetch))}"
             )
             logger.warning(msg)
             raise ValueError(msg)
@@ -86,11 +144,10 @@ class YFinanceMarketDataService(BaseMarketDataService):
             progress=False,
         )
 
-        prices: dict[str, Decimal] = {}
+        fetched_prices: dict[str, Decimal] = {}
         if df is None or not isinstance(df, pd.DataFrame) or df.empty:
-            msg = (
-                f"Could not fetch prices for tickers:{', '.join(sorted(tickers_upper))}"
-            )
+            tickers_str = ", ".join(sorted(tickers_to_fetch))
+            msg = f"Could not fetch prices for tickers: {tickers_str}"
             logger.warning(msg)
             raise ValueError(msg)
 
@@ -114,20 +171,35 @@ class YFinanceMarketDataService(BaseMarketDataService):
                         )
 
                 original_key = ticker_map[resolved_ticker]
-                prices[original_key] = price
+                fetched_prices[original_key] = price
             except ValueError:
                 original_key = ticker_map.get(resolved_ticker, resolved_ticker)
                 logger.warning(f"Could not fetch price for ticker: {original_key}")
                 continue
 
         # 4. Check for missing tickers based on the original queried keys
-        missing = set(tickers_upper) - set(prices.keys())
+        missing = set(tickers_to_fetch) - set(fetched_prices.keys())
         if missing:
             msg = f"Could not fetch prices for tickers: {', '.join(sorted(missing))}"
             logger.warning(msg)
             raise ValueError(msg)
 
-        return prices
+        # Cache the fetched prices if we have a database session
+        if session_to_use is not None and fetched_prices:
+            _save_ticker_prices(session_to_use, fetched_prices)
+            logger.debug(f"Cached {len(fetched_prices)} new prices")
+
+        # Combine cached and fetched prices
+        result = {**cached_prices, **fetched_prices}
+        logger.info(
+            "[PROFILE] get_current_prices for %d tickers took %.3fs "
+            "(%d cache hits, %d Yahoo Finance fetches)",
+            len(tickers_upper),
+            perf_counter() - started_at,
+            len(cached_prices),
+            len(tickers_to_fetch),
+        )
+        return result
 
     async def get_exchange_rate(self, from_currency: str, to_currency: str) -> Decimal:
         """Fetch currency exchange rate between two currencies asynchronously.

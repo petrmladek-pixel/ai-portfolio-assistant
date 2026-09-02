@@ -87,7 +87,7 @@ async def upload_portfolio(
             fio_parser,
         )
         valued = await valuation_service.value_portfolio_async(
-            imported, target_currency=Currency.CZK
+            imported, target_currency=Currency.CZK, db_session=session
         )
         context = _success_context(current_user, portfolios, portfolio_id_int, valued)
         context["ai_analysis_markdown"] = await gemini_service.analyze_portfolio(

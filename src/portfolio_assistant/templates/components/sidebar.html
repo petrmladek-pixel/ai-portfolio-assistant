@@ -1,10 +1,15 @@
-<div class="flex h-full flex-col" x-data="{ open: false }">
+<div class="flex h-full flex-col" x-data="{
+    open: false,
+    selectedPortfolio: '{{ selected_portfolio_id or '' }}'
+  }">
   <div class="border-b border-border px-6 py-6">
     <div class="flex items-start gap-2">
-      <h1 class="text-sm font-bold uppercase leading-snug tracking-wider text-foreground">
+      <h1 class="text-sm font-bold uppercase leading-snug tracking-wider
+        text-foreground">
         AI Portfolio<br />Assistant
       </h1>
-      <span class="mt-0.5 shrink-0 rounded-sm border border-border px-1.5 py-0.5 font-mono text-[10px] tracking-tight text-muted-foreground">
+      <span class="mt-0.5 shrink-0 rounded-sm border border-border px-1.5 py-0.5
+        font-mono text-[10px] tracking-tight text-muted-foreground">
         v0.8.0-beta
       </span>
     </div>
@@ -12,13 +17,16 @@
 
   <div class="flex-1 overflow-y-auto px-6 py-6 relative">
 
-    <form method="POST" action="/upload" enctype="multipart/form-data" class="flex flex-col gap-4">
+    <form method="POST" action="/upload" enctype="multipart/form-data"
+      class="flex flex-col gap-4">
 
       <label class="block">
         <span class="mb-1.5 block text-[11px] font-medium uppercase tracking-wider text-muted-foreground">Cílové portfolio</span>
         <div class="flex items-center gap-2">
           <div class="relative flex-1">
-            <select name="portfolio_id" id="portfolio-select" onchange="window.location.href='/?portfolio_id=' + this.value;" class="w-full appearance-none rounded-sm border border-border bg-card px-3 py-2.5 pr-9 text-sm text-foreground outline-none transition-colors hover:border-foreground/40 focus:border-foreground">
+            <select name="portfolio_id" id="portfolio-select" x-model="selectedPortfolio"
+              @change="window.location.href = '/dashboard?portfolio_id=' + selectedPortfolio"
+              class="w-full appearance-none rounded-sm border border-border bg-card px-3 py-2.5 pr-9 text-sm text-foreground outline-none transition-colors hover:border-foreground/40 focus:border-foreground">
               <option value="all" {% if selected_portfolio_id == 'all' or selected_portfolio_id == 'all'|string %}selected{% endif %}>Všechna portfolia</option>
               {% if portfolios %}
                 {% for p in portfolios %}
@@ -38,33 +46,49 @@
         </div>
       </label>
 
-      <!-- Import Type Selection -->
-      <label class="block">
-        <span class="mb-1.5 block text-[11px] font-medium uppercase tracking-wider text-muted-foreground">Typ importu</span>
-        <div class="relative">
-          <select name="import_type" class="w-full appearance-none rounded-sm border border-border bg-card px-3 py-2.5 pr-9 text-sm text-foreground outline-none transition-colors hover:border-foreground/40 focus:border-foreground">
-            <option value="DEGIRO" selected>DEGIRO</option>
-            <option value="Fio">Fio e-Broker</option>
-          </select>
-          <svg class="pointer-events-none absolute right-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m6 9 6 6 6-6"/></svg>
-        </div>
-      </label>
-
-      <!-- File Upload Area -->
-      <div>
-        <span class="mb-1.5 block text-[11px] font-medium uppercase tracking-wider text-muted-foreground">Soubor</span>
-        <label class="dropzone flex cursor-pointer flex-col items-center justify-center gap-2 rounded-sm border border-dashed border-border bg-secondary/40 px-4 py-6 text-center transition-colors hover:border-foreground/50 hover:bg-secondary">
-          <svg class="size-4 text-muted-foreground" xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M13.234 20.252 21 12.3"/><path d="m16 6-8.414 8.586a2 2 0 0 0 0 2.828 2 2 0 0 0 2.828 0l8.414-8.586a4 4 0 0 0 0-5.656 4 4 0 0 0-5.656 0l-8.415 8.585a6 6 0 1 0 8.486 8.486"/></svg>
-          <span class="dropzone-text text-xs text-muted-foreground">Přetáhněte CSV nebo <span class="font-medium text-foreground underline underline-offset-2">vyberte soubor</span></span>
-          <input type="file" name="file" accept=".csv" class="sr-only file-input" />
+      <!-- Upload form container - shown when a specific portfolio is selected
+        (not 'all' and not empty) -->
+      <div x-show="selectedPortfolio !== '' && selectedPortfolio !== 'all'" x-cloak>
+        <!-- Import Type Selection -->
+        <label class="block">
+          <span class="mb-1.5 block text-[11px] font-medium uppercase tracking-wider text-muted-foreground">Typ importu</span>
+          <div class="relative">
+            <select name="import_type" class="w-full appearance-none rounded-sm border border-border bg-card px-3 py-2.5 pr-9 text-sm text-foreground outline-none transition-colors hover:border-foreground/40 focus:border-foreground">
+              <option value="DEGIRO" selected>DEGIRO</option>
+              <option value="Fio">Fio e-Broker</option>
+            </select>
+            <svg class="pointer-events-none absolute right-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m6 9 6 6 6-6"/></svg>
+          </div>
         </label>
-      </div>
 
-      <!-- Submit Action Button -->
-      <button type="submit" id="submit-btn" class="mt-1 w-full rounded-sm bg-primary px-4 py-3 text-sm font-semibold text-primary-foreground transition-all hover:opacity-90 active:scale-[0.99] disabled:opacity-50 disabled:cursor-not-allowed">
-        Nahrát CSV data a analyzovat
-      </button>
-      <p id="all-portfolio-warning" class="text-xs text-red-600 hidden text-center">Pro nahrání dat vyberte konkrétní portfolio (nelze nahrávat do agregovaného pohledu).</p>
+        <!-- File Upload Area -->
+        <div>
+          <span class="mb-1.5 block text-[11px] font-medium uppercase tracking-wider text-muted-foreground">Soubor</span>
+          <label class="dropzone flex cursor-pointer flex-col items-center justify-center gap-2 rounded-sm border border-dashed border-border bg-secondary/40 px-4 py-6 text-center transition-colors hover:border-foreground/50 hover:bg-secondary">
+            <svg class="size-4 text-muted-foreground" xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M13.234 20.252 21 12.3"/><path d="m16 6-8.414 8.586a2 2 0 0 0 0 2.828 2 2 0 0 0 2.828 0l8.414-8.586a4 4 0 0 0 0-5.656 4 4 0 0 0-5.656 0l-8.415 8.585a6 6 0 1 0 8.486 8.486"/></svg>
+            <span class="dropzone-text text-xs text-muted-foreground">Přetáhněte CSV nebo <span class="font-medium text-foreground underline underline-offset-2">vyberte soubor</span></span>
+            <input type="file" name="file" accept=".csv" class="sr-only file-input" />
+          </label>
+        </div>
+
+        <!-- Submit Action Button -->
+        <button type="submit" id="submit-btn"
+          class="mt-1 w-full rounded-sm bg-primary px-4 py-3 text-sm font-semibold
+          text-primary-foreground transition-all hover:opacity-90 active:scale-[0.99]
+          disabled:opacity-50 disabled:cursor-not-allowed">
+          Nahrát CSV data a analyzovat
+        </button>
+        <p id="all-portfolio-warning" class="text-xs text-red-600 hidden text-center">
+          Pro nahrání dat vyberte konkrétní portfolio (nelze nahrávat do agregovaného
+          pohledu).
+        </p>
+      </div>
+      <!-- Helper text - shown when no specific portfolio is selected
+        or 'all' is selected -->
+      <p x-show="selectedPortfolio === '' || selectedPortfolio === 'all'" x-cloak
+        class="text-xs text-muted-foreground text-center">
+        Pro import transakcí vyberte konkrétní cílové portfolio.
+      </p>
     </form>
 
     <!-- Create Portfolio Modal (Positioned safely outside the upload form) -->
@@ -129,12 +153,12 @@
     const submitBtn = document.getElementById('submit-btn');
     const warning = document.getElementById('all-portfolio-warning');
     if (select && submitBtn) {
-      if (select.value === 'all') {
+      if (select.value === 'all' || select.value === '') {
         submitBtn.disabled = true;
-        warning.classList.remove('hidden');
+        if (warning) warning.classList.remove('hidden');
       } else {
         submitBtn.disabled = false;
-        warning.classList.add('hidden');
+        if (warning) warning.classList.add('hidden');
       }
     }
   }
