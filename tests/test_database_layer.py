@@ -91,3 +91,12 @@ def test_initialize_database_creates_schema(tmp_path, monkeypatch):
     assert {"user", "portfolio", "position"} <= set(
         inspect(test_engine).get_table_names()
     )
+
+
+def test_run_db_migrations_missing_config_raises_error(monkeypatch):
+    import pytest
+
+    monkeypatch.setenv("ALEMBIC_CONFIG_PATH", "non_existent_alembic.ini")
+    with pytest.raises(FileNotFoundError) as exc_info:
+        run_db_migrations()
+    assert "Alembic configuration file not found" in str(exc_info.value)
