@@ -1,6 +1,5 @@
 """Tests for portfolio Pydantic models."""
 
-from datetime import datetime
 from decimal import Decimal
 
 import pytest
@@ -131,7 +130,7 @@ def test_anonymized_position_invalid_weight():
 
 def test_to_anonymized_calculation():
     """Test the to_anonymized method calculation and output."""
-    now = datetime.now()
+    now = get_now_utc()
     pos1 = StockPosition(
         ticker="AAPL",
         quantity=Decimal("10"),
