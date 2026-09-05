@@ -1,9 +1,8 @@
 """Database operations for ticker metadata caching."""
 
-from datetime import UTC, datetime
-
 from sqlmodel import Session, select
 
+from portfolio_assistant.core.utils import get_now_utc
 from portfolio_assistant.models.ticker_metadata import TickerMetadata
 
 
@@ -18,7 +17,7 @@ def save_ticker_metadata(
 ) -> TickerMetadata:
     """Save or update ticker metadata with upsert logic."""
     metadata = get_ticker_metadata(db, ticker)
-    current_time = datetime.now(UTC)
+    current_time = get_now_utc()
     if metadata:
         metadata.sector = sector
         metadata.country = country

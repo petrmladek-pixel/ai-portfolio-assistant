@@ -1,10 +1,10 @@
 """Tests for the base portfolio parser."""
 
-from datetime import datetime
 from decimal import Decimal
 
 import pytest
 
+from portfolio_assistant.core.utils import get_now_utc
 from portfolio_assistant.models.portfolio import (
     Currency,
     ImportedPortfolio,
@@ -25,7 +25,7 @@ class MockParser(BasePortfolioParser):
         # Just return a dummy portfolio for testing
         return ImportedPortfolio(
             broker_name=self.broker_name,
-            imported_at=datetime.now(),
+            imported_at=get_now_utc(),
             positions=[
                 StockPosition(
                     ticker="TSLA",

@@ -54,22 +54,28 @@ A lightweight, privacy-focused web application that parses broker exports (CSV/P
   - [x] **Pragmatic Layered Architecture:** Refactored backend routers to strictly follow 3-tier layering (Routers -> Services -> CRUD) and introduced structured Domain Exception handling.
   - [x] **Multi-Portfolio DB Schema:** Implemented the `Portfolio` model in the database to support separate accounts/portfolios per broker per user.
 
-### Phase 5: Premium Visual Facelift & AI Intelligence (Current Focus 🎯)
-* **Sprint 8: Swiss-Style UI & Interactive AI**
+### Phase 5: Premium Visual Facelift & DB Persistence Onboarding (Completed 🎉)
+* **Sprint 8: Swiss-Style UI & Unified Persistence**
   - [x] **Swiss-Style Dashboard Facelift:** Refactor Jinja2 templates into clean, modular sub-components (< 150 lines) based on the premium minimalist layout.
   - [x] **Unified Upload Form:** Simplify the upload section to a single unified form with target portfolio selection, import type (DEGIRO/Fio), and a single file input.
   - [x] **Self-Healing DB & Startup Seeding:** Implement database self-healing seeder on startup that automatically populates a default portfolio and a guest demo portfolio (Warren Buffett portfolio) only in development environments.
+
+### Phase 6: Real-Data Caching, Architectural Hardening & AI Copilot (Current Focus 🎯)
+* **Sprint 9: Data Integration & Code Hygiene**
+  - [ ] **YFinance Service Split (Issue #66):** Refactor `YFinanceService` to clearly separate real-time price fetching from metadata cache operations, preventing service coupling.
   - [ ] **Real-data Sector & Country Allocations (Issues #32, #57 & #60):** Fetch sector and country metadata from Yahoo Finance, cache them in `SQLiteISINCache`, and render separate Sector and Geographical Donut Charts on the dashboard.
   - [ ] **Stateful AI Chat (Issues #29 & #61):** Implement `/api/chat` to allow follow-up conversations with Gemini, persisting chat history in the SQLite database.
   - [ ] **Stateful AI Analysis & Cooldown (Issue #63):** Implement rate-limited, on-demand portfolio analysis cached in SQLite with a 7-day cooldown to prevent API cost spam.
-  - [ ] **Automated SEC 13F Sync for Famous Investors (Issue #62):** Implement a quarterly sync that fetches real-time elite holdings (Warren Buffett, Bridgewater, Scion) to dynamically update guest demo profiles.
-  - [ ] **Customizable System Prompts:** Add `analysis_prompt` per-user settings to the database and expose an editing interface.
+  - [ ] **Architectural Session Decoupling (Issue #67):** Refactor the service and API layers to fully decouple them from raw SQLAlchemy sessions, ensuring clean transactional boundaries.
+  - [ ] **Route Profiling Middleware (Issue #68):** Design and implement a reusable decorator or middleware to profile API endpoint latencies and log performance bottlenecks.
+  - [ ] **Timezone-Aware UTC Datetimes (Issue #69):** Audit and enforce consistent, timezone-aware UTC datetime fields across all SQLite models, preventing timezone offset bugs.
+  - [ ] **Automated SEC 13F Sync (Issue #62):** Implement a quarterly sync that fetches real-time elite holdings (Warren Buffett, Bridgewater, Scion) to dynamically update guest demo profiles.
 
-### Phase 6: Historical Performance & Advanced Analytics (Upcoming 🚀)
-* **Sprint 9: Historical Tracking & Benchmarking**
+### Phase 7: Historical Performance & Advanced Analytics (Upcoming 🚀)
+* **Sprint 10: Historical Tracking & Benchmarking**
   - [ ] Implement database models (`PortfolioHistory`) to periodically store daily portfolio valuation snapshots.
   - [ ] Render a historical performance line chart on the dashboard.
   - [ ] Implement benchmarking to compare portfolio returns against major market indices (e.g., S&P 500, MSCI World).
-* **Sprint 10: ETF Look-Through & Multi-Language**
+* **Sprint 11: ETF Look-Through & Multi-Language**
   - [ ] **ETF Look-Through (Issue #33):** Support breaking down ETFs into their raw individual constituent holdings for deeper risk analysis.
   - [ ] **Localization (Issue #30):** Implement multi-language localization (EN, CS, FR, DE) for both the UI dashboard and the AI evaluation output.

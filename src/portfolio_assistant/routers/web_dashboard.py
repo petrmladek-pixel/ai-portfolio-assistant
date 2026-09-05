@@ -3,7 +3,6 @@
 import json
 import logging
 from collections.abc import Sequence
-from datetime import datetime
 from time import perf_counter
 from typing import Annotated, Any
 
@@ -13,6 +12,7 @@ from sqlalchemy.exc import SQLAlchemyError
 from sqlmodel import Session
 
 from portfolio_assistant.core.exceptions import PersistenceError
+from portfolio_assistant.core.utils import get_now_utc
 from portfolio_assistant.crud.portfolio import (
     get_portfolio_for_user,
     get_portfolios_for_user,
@@ -293,7 +293,7 @@ def _to_imported_portfolios(portfolios: Sequence[Portfolio]) -> list[ImportedPor
             imported.append(
                 ImportedPortfolio(
                     broker_name=p.name,
-                    imported_at=datetime.now(),
+                    imported_at=get_now_utc(),
                     positions=[
                         StockPosition(
                             ticker=pos.ticker,

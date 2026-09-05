@@ -1,11 +1,12 @@
 """Tests for the YFinanceService metadata caching service."""
 
-from datetime import UTC, datetime, timedelta
+from datetime import datetime, timedelta
 from unittest.mock import MagicMock, patch
 
 import pytest
 from sqlmodel import Session
 
+from portfolio_assistant.core.utils import get_now_utc
 from portfolio_assistant.crud.ticker_metadata import (
     get_ticker_metadata,
     save_ticker_metadata,
@@ -89,7 +90,7 @@ def test_get_metadata_cache_expired(
 ) -> None:
     """Test that yfinance is called when cache is expired (31 days old)."""
     # Pre-populate cache with expired data (31 days old)
-    expired_time = datetime.now(UTC) - timedelta(days=31)
+    expired_time = get_now_utc() - timedelta(days=31)
     expired_metadata = TickerMetadata(
         ticker="AAPL",
         sector="Old Sector",
@@ -130,7 +131,7 @@ def test_get_metadata_cache_exactly_30_days(
 ) -> None:
     """Test that cache exactly 30 days old expires and fetches fresh data."""
     # Pre-populate cache with data exactly 30 days old
-    exact_time = datetime.now(UTC) - timedelta(days=30)
+    exact_time = get_now_utc() - timedelta(days=30)
     metadata = TickerMetadata(
         ticker="AAPL",
         sector="Old Sector",

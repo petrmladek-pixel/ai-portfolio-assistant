@@ -1,6 +1,6 @@
 """Security utilities for authentication and authorization."""
 
-from datetime import UTC, datetime, timedelta
+from datetime import timedelta
 from typing import Annotated, Any
 
 import jwt
@@ -10,6 +10,7 @@ from sqlmodel import Session
 
 from ..config import get_settings
 from ..core.database import get_db_session
+from ..core.utils import get_now_utc
 from ..crud.user import get_user_by_email
 from ..models.user import User
 
@@ -32,11 +33,9 @@ def create_access_token(
     """Create a new JWT access token."""
     to_encode = data.copy()
     if expires_delta:
-        expire = datetime.now(UTC) + expires_delta
+        expire = get_now_utc() + expires_delta
     else:
-        expire = datetime.now(UTC) + timedelta(
-            minutes=settings.access_token_expire_minutes
-        )
+        expire = get_now_utc() + timedelta(minutes=settings.access_token_expire_minutes)
     to_encode.update({"exp": expire})
     encoded_jwt = jwt.encode(
         to_encode, settings.secret_key, algorithm=settings.algorithm

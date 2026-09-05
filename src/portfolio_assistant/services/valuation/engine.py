@@ -1,9 +1,9 @@
 """Implementation of the valuation service."""
 
-from datetime import UTC, datetime
 from decimal import Decimal
 from typing import Any
 
+from portfolio_assistant.core.utils import get_now_utc
 from portfolio_assistant.exceptions.valuation import ValuationError
 from portfolio_assistant.models.portfolio import Currency, ImportedPortfolio
 from portfolio_assistant.models.valuation import ValuedPortfolio, ValuedPosition
@@ -45,7 +45,7 @@ class ValuationService(BaseValuationService):
             return ValuedPortfolio(
                 broker_name=portfolio.broker_name,
                 imported_at=portfolio.imported_at,
-                valued_at=datetime.now(UTC),
+                valued_at=get_now_utc(),
                 positions=[],
                 total_value=Decimal("0"),
                 target_currency=target_currency,
@@ -123,7 +123,7 @@ class ValuationService(BaseValuationService):
         return ValuedPortfolio(
             broker_name=portfolio.broker_name,
             imported_at=portfolio.imported_at,
-            valued_at=datetime.now(UTC),
+            valued_at=get_now_utc(),
             positions=valued_positions,
             total_value=total_value,
             target_currency=target_currency,

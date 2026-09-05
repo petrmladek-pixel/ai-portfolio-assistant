@@ -6,6 +6,7 @@ from decimal import Decimal
 import pytest
 from pydantic import ValidationError
 
+from portfolio_assistant.core.utils import get_now_utc
 from portfolio_assistant.models.portfolio import (
     AnonymizedPortfolio,
     AnonymizedPosition,
@@ -79,7 +80,7 @@ def test_imported_portfolio_valid():
     )
     portfolio = ImportedPortfolio(
         broker_name=" DEGIRO ",
-        imported_at=datetime.now(),
+        imported_at=get_now_utc(),
         positions=[pos],
     )
     assert portfolio.broker_name == "DEGIRO"
@@ -92,7 +93,7 @@ def test_imported_portfolio_invalid_broker():
     with pytest.raises(ValidationError):
         ImportedPortfolio(
             broker_name="  ",
-            imported_at=datetime.now(),
+            imported_at=get_now_utc(),
             positions=[],
         )
 
@@ -168,7 +169,7 @@ def test_to_anonymized_empty():
     """Test to_anonymized with an empty portfolio."""
     portfolio = ImportedPortfolio(
         broker_name="Empty",
-        imported_at=datetime.now(),
+        imported_at=get_now_utc(),
         positions=[],
     )
     anonymized = portfolio.to_anonymized()
