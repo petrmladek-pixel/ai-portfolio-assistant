@@ -1,13 +1,14 @@
 """Yahoo Finance metadata service for caching sector and country information."""
 
 import logging
-from datetime import UTC, datetime, timedelta
+from datetime import UTC, timedelta
 from decimal import Decimal
 from time import perf_counter
 
 import yfinance as yf
 from sqlmodel import Session
 
+from portfolio_assistant.core.utils import get_now_utc
 from portfolio_assistant.crud.ticker_metadata import (
     get_ticker_metadata,
     save_ticker_metadata,
@@ -62,7 +63,7 @@ class YFinanceService:
 
             # Check if cache is still valid (less than 30 days old)
             cache_expiry = timedelta(days=30)
-            if datetime.now(UTC) - updated_at < cache_expiry:
+            if get_now_utc() - updated_at < cache_expiry:
                 logger.info(
                     "[PROFILE] get_metadata for %s took %.3fs (cache hit)",
                     ticker,

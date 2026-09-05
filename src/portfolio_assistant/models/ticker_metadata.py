@@ -1,10 +1,11 @@
 """Ticker metadata model for caching sector and country information."""
 
-from datetime import UTC, datetime
+from datetime import datetime
 
 from sqlmodel import Field, SQLModel
 
 from portfolio_assistant.core.types import UTCDateTime
+from portfolio_assistant.core.utils import get_now_utc
 
 
 class TickerMetadataBase(SQLModel):
@@ -14,7 +15,7 @@ class TickerMetadataBase(SQLModel):
     sector: str | None = Field(default="Unknown", index=True)
     country: str | None = Field(default="Unknown", index=True)
     updated_at: datetime = Field(
-        default_factory=lambda: datetime.now(UTC),
+        default_factory=get_now_utc,
         nullable=False,
         sa_type=UTCDateTime,
     )

@@ -1,11 +1,12 @@
 """Ticker price model for caching current prices from Yahoo Finance."""
 
-from datetime import UTC, datetime
+from datetime import datetime
 from decimal import Decimal
 
 from sqlmodel import Column, Field, Numeric, SQLModel
 
 from portfolio_assistant.core.types import UTCDateTime
+from portfolio_assistant.core.utils import get_now_utc
 
 
 class TickerPriceBase(SQLModel):
@@ -16,7 +17,7 @@ class TickerPriceBase(SQLModel):
         sa_column=Column(Numeric(precision=18, scale=8, asdecimal=True))
     )
     updated_at: datetime = Field(
-        default_factory=lambda: datetime.now(UTC),
+        default_factory=get_now_utc,
         nullable=False,
         sa_type=UTCDateTime,
     )

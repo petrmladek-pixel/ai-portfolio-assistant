@@ -7,9 +7,9 @@ CP1250/UTF-8 encodings, semicolon delimiters, and Czech decimal formatting.
 import csv
 import io
 from collections.abc import Iterator
-from datetime import datetime
 from decimal import Decimal
 
+from portfolio_assistant.core.utils import get_now_utc
 from portfolio_assistant.models.portfolio import (
     Currency,
     ImportedPortfolio,
@@ -209,6 +209,6 @@ class FioBrokerPortfolioParser(BasePortfolioParser):
 
         return ImportedPortfolio(
             broker_name=self.broker_name,
-            imported_at=datetime.now(),
+            imported_at=get_now_utc(),
             positions=positions,
         )

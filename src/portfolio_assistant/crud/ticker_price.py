@@ -1,11 +1,12 @@
 """Database operations for ticker price caching."""
 
 import logging
-from datetime import UTC, datetime, timedelta
+from datetime import UTC, timedelta
 from decimal import Decimal
 
 from sqlmodel import Session, select
 
+from portfolio_assistant.core.utils import get_now_utc
 from portfolio_assistant.models.ticker_price import TickerPrice
 
 # Cache TTL: 15 minutes
@@ -31,7 +32,7 @@ def get_ticker_price(db: Session, ticker: str) -> TickerPrice | None:
         )
 
     # Check if cache is still valid (less than 15 minutes old)
-    if datetime.now(UTC) - updated_at < PRICE_CACHE_TTL:
+    if get_now_utc() - updated_at < PRICE_CACHE_TTL:
         return cached
 
     logger.info("[PROFILE] price cache expired for %s", ticker)
@@ -41,7 +42,7 @@ def get_ticker_price(db: Session, ticker: str) -> TickerPrice | None:
 
 def save_ticker_price(db: Session, ticker: str, price: Decimal) -> TickerPrice:
     """Save or update ticker price with upsert logic."""
-    current_time = datetime.now(UTC)
+    current_time = get_now_utc()
 
     # Query for existing record regardless of TTL - we want to update existing records
     statement = select(TickerPrice).where(TickerPrice.ticker == ticker)
@@ -67,7 +68,7 @@ def save_ticker_price(db: Session, ticker: str, price: Decimal) -> TickerPrice:
 def get_ticker_prices(db: Session, tickers: list[str]) -> dict[str, Decimal]:
     """Get cached prices for multiple tickers that are still valid."""
     prices = {}
-    current_time = datetime.now(UTC)
+    current_time = get_now_utc()
 
     for ticker in tickers:
         statement = select(TickerPrice).where(TickerPrice.ticker == ticker)
@@ -91,7 +92,7 @@ def get_ticker_prices(db: Session, tickers: list[str]) -> dict[str, Decimal]:
 
 def save_ticker_prices(db: Session, prices: dict[str, Decimal]) -> list[TickerPrice]:
     """Save or update multiple ticker prices with upsert logic."""
-    current_time = datetime.now(UTC)
+    current_time = get_now_utc()
     saved_prices = []
 
     for ticker, price in prices.items():

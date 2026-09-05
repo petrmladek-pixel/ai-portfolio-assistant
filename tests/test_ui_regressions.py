@@ -1,7 +1,6 @@
 """UI regression tests using BeautifulSoup4 to test DOM rendering."""
 
 import warnings
-from datetime import datetime
 from decimal import Decimal
 from unittest.mock import AsyncMock, MagicMock
 
@@ -11,6 +10,7 @@ from fastapi.testclient import TestClient
 from sqlmodel import Session
 
 from portfolio_assistant.core.database import get_db_session
+from portfolio_assistant.core.utils import get_now_utc
 from portfolio_assistant.dependencies import (
     get_current_user,
     get_optional_current_user,
@@ -67,7 +67,7 @@ def _create_mock_portfolio_data_with_weights() -> tuple[
 
     mock_imported_portfolio = ImportedPortfolio(
         broker_name="DEGIRO",
-        imported_at=datetime.now(),
+        imported_at=get_now_utc(),
         positions=mock_positions,
     )
 
@@ -110,8 +110,8 @@ def _create_mock_portfolio_data_with_weights() -> tuple[
 
     mock_valued_portfolio = ValuedPortfolio(
         broker_name="DEGIRO",
-        imported_at=datetime.now(),
-        valued_at=datetime.now(),
+        imported_at=get_now_utc(),
+        valued_at=get_now_utc(),
         positions=mock_valued_positions,
         total_value=Decimal("150000.00"),
         target_currency=Currency.CZK,
