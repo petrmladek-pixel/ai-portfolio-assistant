@@ -6,7 +6,7 @@ ISIN to ticker mappings with timestamps for caching purposes.
 
 import asyncio
 import sqlite3
-from datetime import datetime
+from datetime import UTC, datetime
 from pathlib import Path
 
 from portfolio_assistant.config import get_settings
@@ -85,7 +85,7 @@ class SQLiteISINCache:
             ticker: The resolved ticker symbol.
         """
         normalized_isin = isin.strip().upper()
-        resolved_at = datetime.utcnow().isoformat()
+        resolved_at = datetime.now(UTC).isoformat()
 
         def _set_ticker_sync() -> None:
             with sqlite3.connect(self.db_path) as conn:
