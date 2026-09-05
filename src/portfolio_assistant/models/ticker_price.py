@@ -5,6 +5,8 @@ from decimal import Decimal
 
 from sqlmodel import Column, Field, Numeric, SQLModel
 
+from portfolio_assistant.core.types import UTCDateTime
+
 
 class TickerPriceBase(SQLModel):
     """Base fields for ticker price caching."""
@@ -16,6 +18,7 @@ class TickerPriceBase(SQLModel):
     updated_at: datetime = Field(
         default_factory=lambda: datetime.now(UTC),
         nullable=False,
+        sa_type=UTCDateTime,
     )
 
 

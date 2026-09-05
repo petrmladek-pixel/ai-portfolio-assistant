@@ -4,6 +4,8 @@ from datetime import UTC, datetime
 
 from sqlmodel import Field, SQLModel
 
+from portfolio_assistant.core.types import UTCDateTime
+
 
 class TickerMetadataBase(SQLModel):
     """Base fields for ticker metadata."""
@@ -14,6 +16,7 @@ class TickerMetadataBase(SQLModel):
     updated_at: datetime = Field(
         default_factory=lambda: datetime.now(UTC),
         nullable=False,
+        sa_type=UTCDateTime,
     )
 
 
