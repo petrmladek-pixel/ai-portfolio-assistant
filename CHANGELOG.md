@@ -15,6 +15,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Centralized configurations in `pyproject.toml`.
 - GitHub Actions CI pipeline with automated linting, typing, and testing.
 
+## [0.10.0](https://github.com/petrmladek-pixel/ai-portfolio-assistant/compare/v0.9.0...v0.10.0) (2026-09-05)
+
+
+### Features
+
+* **allocations:** add portfolio allocation API endpoints and services ([a92ad87](https://github.com/petrmladek-pixel/ai-portfolio-assistant/commit/a92ad87313a595577a05ce9afb6719028640e5c7))
+* **models:** add UTCDateTime type for timezone-aware datetime fields ([1337024](https://github.com/petrmladek-pixel/ai-portfolio-assistant/commit/13370244b2784390a18fe445503290a38c34fc54))
+* **services:** update datetime handling to use UTC for resolved_at timestamps ([d4e0274](https://github.com/petrmladek-pixel/ai-portfolio-assistant/commit/d4e02744f5563670c517ee14c1de556d178500b0))
+* **transactions:** add CRUD operations and models for portfolio transactions ([ba633ea](https://github.com/petrmladek-pixel/ai-portfolio-assistant/commit/ba633eab428343cd9e07d5106aa66d55add9ce16))
+* **utils:** add get_now_utc function for consistent UTC datetime handling ([d23a19e](https://github.com/petrmladek-pixel/ai-portfolio-assistant/commit/d23a19eb769913c1a668b9bbf4a86c92a4608ae8))
+
 ## [0.9.0](https://github.com/petrmladek-pixel/ai-portfolio-assistant/compare/v0.8.0...v0.9.0) (2026-09-02)
 
 
