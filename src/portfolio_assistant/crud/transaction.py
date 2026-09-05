@@ -26,3 +26,13 @@ def get_portfolio_transactions(
     """
     statement = select(Transaction).where(Transaction.portfolio_id == portfolio_id)
     return session.exec(statement).all()
+
+
+def get_portfolio_tickers(session: Session, portfolio_id: int) -> list[str]:
+    """Return the distinct transaction tickers for a portfolio."""
+    statement = (
+        select(Transaction.ticker)
+        .where(Transaction.portfolio_id == portfolio_id)
+        .distinct()
+    )
+    return list(session.exec(statement).all())

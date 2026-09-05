@@ -2,6 +2,7 @@
 
 from datetime import date
 from decimal import Decimal
+from unittest.mock import patch
 
 from fastapi.testclient import TestClient
 from sqlmodel import Session
@@ -9,7 +10,8 @@ from sqlmodel import Session
 from portfolio_assistant.core.database import get_db_session
 from portfolio_assistant.dependencies import get_current_user
 from portfolio_assistant.main import app
-from portfolio_assistant.models.db_models import Portfolio, Position
+from portfolio_assistant.models.db_models import Portfolio, Position, Transaction
+from portfolio_assistant.models.portfolio import TransactionType
 from portfolio_assistant.models.user import User
 
 client = TestClient(app)
@@ -106,5 +108,46 @@ def test_post_portfolio_import(db_session: Session):
         data = response.json()
         assert data["status"] == "success"
         assert "successfully imported" in data["message"]
+    finally:
+        app.dependency_overrides.clear()
+
+
+def test_get_portfolio_allocations(db_session: Session) -> None:
+    """Test GET allocations returns values priced by the pricing service."""
+    user = User(email="allocations@example.com", hashed_password="hash")
+    db_session.add(user)
+    db_session.commit()
+    db_session.refresh(user)
+
+    portfolio = Portfolio(name="Allocation", broker="Fio", user_id=user.id)
+    db_session.add(portfolio)
+    db_session.commit()
+    db_session.refresh(portfolio)
+
+    transaction = Transaction(
+        ticker="AAPL",
+        quantity=Decimal("2"),
+        transaction_type=TransactionType.BUY,
+        portfolio_id=portfolio.id,
+    )
+    db_session.add(transaction)
+    db_session.commit()
+
+    app.dependency_overrides[get_current_user] = lambda: user
+    app.dependency_overrides[get_db_session] = lambda: db_session
+
+    try:
+        with patch(
+            "portfolio_assistant.routers.allocations."
+            "PriceCacheService.get_current_prices",
+            return_value={"AAPL": Decimal("150.00")},
+        ):
+            response = client.get(f"/api/portfolios/{portfolio.id}/allocations")
+
+        assert response.status_code == 200
+        data = response.json()
+        assert data["portfolio_id"] == portfolio.id
+        assert Decimal(data["total_value"]) == Decimal("300.00")
+        assert data["allocations"][0]["ticker"] == "AAPL"
     finally:
         app.dependency_overrides.clear()

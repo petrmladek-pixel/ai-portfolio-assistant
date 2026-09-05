@@ -40,6 +40,12 @@ def get_ticker_price(db: Session, ticker: str) -> TickerPrice | None:
     return None
 
 
+def find_ticker_price(db: Session, ticker: str) -> TickerPrice | None:
+    """Return a cached ticker price regardless of its age."""
+    statement = select(TickerPrice).where(TickerPrice.ticker == ticker)
+    return db.exec(statement).first()
+
+
 def save_ticker_price(db: Session, ticker: str, price: Decimal) -> TickerPrice:
     """Save or update ticker price with upsert logic."""
     current_time = get_now_utc()
