@@ -1,6 +1,6 @@
 """Tests for the YFinanceService metadata caching service."""
 
-from datetime import datetime, timedelta
+from datetime import timedelta
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -244,7 +244,7 @@ def test_get_metadata_naive_datetime_from_sqlite(
 ) -> None:
     """Test that naive datetime from SQLite is handled correctly."""
     # Pre-populate cache with naive datetime (simulating SQLite behavior)
-    naive_time = datetime.now() - timedelta(days=1)
+    naive_time = (get_now_utc() - timedelta(days=1)).replace(tzinfo=None)
     metadata = TickerMetadata(
         ticker="AAPL",
         sector="Technology",

@@ -8,7 +8,8 @@ from typing import Any
 from sqlmodel import Session, select
 
 from portfolio_assistant.models.db_models import Portfolio, Position
-from portfolio_assistant.services.yfinance_service import YFinanceService
+from portfolio_assistant.services.metadata_cache import MetadataCacheService
+from portfolio_assistant.services.price_cache import PriceCacheService
 
 logger = logging.getLogger(__name__)
 
@@ -23,7 +24,6 @@ class PortfolioAggregationService:
             db: SQLModel database session.
         """
         self.db = db
-        self.yfinance = YFinanceService(db)
 
     def get_portfolio_allocation(self, portfolio_id: int) -> dict[str, Any]:
         """Calculate sector and country allocation for a portfolio.
@@ -77,6 +77,10 @@ class PortfolioAggregationService:
         country_totals: dict[str, Decimal] = {}
         total_value: Decimal = Decimal("0.00")
 
+        tickers = list({pos.ticker for pos in positions if pos.ticker != "CASH"})
+        prices = PriceCacheService.get_current_prices(self.db, tickers)
+        metadata_by_ticker = MetadataCacheService.get_tickers_metadata(self.db, tickers)
+
         # Calculate values and metadata for all positions first
         loop_started_at = perf_counter()
         position_data = []
@@ -87,14 +91,12 @@ class PortfolioAggregationService:
                 sector = "Cash"
                 country = "Cash"
             else:
-                # Fetch current price (uses caching from YFinanceService)
-                price = self.yfinance.get_current_price(pos.ticker)
+                price = prices[pos.ticker]
                 value = pos.quantity * price
 
-                # Fetch metadata for sector and country
-                metadata = self.yfinance.get_metadata(pos.ticker)
-                sector = metadata.sector or "Unknown"
-                country = metadata.country or "Unknown"
+                metadata = metadata_by_ticker[pos.ticker]
+                sector = str(metadata["sector"])
+                country = str(metadata["country"])
 
             position_data.append((pos, value, sector, country))
 
