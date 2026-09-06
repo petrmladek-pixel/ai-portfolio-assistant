@@ -302,3 +302,22 @@ BAAGECBA;0;68,50;0,00;135;15 102;;3 272,50;135;192,20;25 947,00;14 117,86;93,49%
     assert pos2.quantity == Decimal("135")
     assert pos2.average_price == Decimal("192.20")
     assert pos2.currency == Currency.CZK
+
+
+@pytest.mark.asyncio
+async def test_fio_parser_uses_current_quantity_from_development_export(fio_parser):
+    """Test that a Portfolio - Vyvoj export does not use net period trades."""
+    csv_content = (
+        "Symbol;Akcie;Kurz;Majetek;Kusy;Nakup;Prodej;Vynosy;Akcie;Kurz;Majetek\n"
+        "BAAKOMB;181;658,00;119 098,00;474;469 539;220 077;;655;1 091,00;"
+        "714 605,00\n"
+    )
+
+    portfolio = await fio_parser.parse(csv_content.encode("utf-8"))
+
+    assert len(portfolio.positions) == 1
+    position = portfolio.positions[0]
+    assert position.ticker == "KOMB.PR"
+    assert position.quantity == Decimal("655")
+    assert position.average_price == Decimal("1091.00")
+    assert position.quantity * position.average_price == Decimal("714605.00")

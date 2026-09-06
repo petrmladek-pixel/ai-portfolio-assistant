@@ -22,6 +22,8 @@ from portfolio_assistant.services.parser.base import BasePortfolioParser
 class FioBrokerPortfolioParser(BasePortfolioParser):
     """Parser for Fio e-Broker CSV exports."""
 
+    _CURRENT_QUANTITY_HEADER = "__current_quantity__"
+
     # Local mappings to resolve Fio's Czech symbols instantly without API queries
     FIO_LOCAL_MAPPINGS = {
         "BAACSG": "CSG.PR",  # Colt CZ Group
@@ -53,6 +55,9 @@ class FioBrokerPortfolioParser(BasePortfolioParser):
         """Maps Fio e-Broker headers to internal standard keys."""
         header_map = {}
         for header in headers:
+            if header == self._CURRENT_QUANTITY_HEADER:
+                header_map["quantity"] = header
+                continue
             norm = header.strip().lower()
             if norm in ["isin", "isin kód"]:
                 header_map["isin"] = header
@@ -78,6 +83,7 @@ class FioBrokerPortfolioParser(BasePortfolioParser):
         """
         # Try standard prepared reader first (auto-decoding)
         reader, headers = self._prepare_csv_reader(file_content, delimiter=";")
+        self._mark_current_quantity(reader, headers)
         header_map = self._map_headers(headers)
 
         # Validate we have Symbol or ISIN, Quantity, and either direct Price or Purchase
@@ -102,6 +108,7 @@ class FioBrokerPortfolioParser(BasePortfolioParser):
                 csv_file = io.StringIO(actual_content)
                 reader = csv.DictReader(csv_file, delimiter=";")
                 headers = [h.strip() for h in (reader.fieldnames or [])]
+                self._mark_current_quantity(reader, headers)
                 header_map = self._map_headers(headers)
             except Exception:
                 pass
@@ -118,6 +125,25 @@ class FioBrokerPortfolioParser(BasePortfolioParser):
             )
 
         return reader, header_map
+
+    def _mark_current_quantity(
+        self, reader: csv.DictReader[str], headers: list[str]
+    ) -> None:
+        """Select the current holding column in a Portfolio - Vyvoj export.
+
+        These exports contain two ``Akcie`` columns. The first is the holding at
+        the start of the period, while the second is the current holding. The
+        ``Kusy`` column between them only records the period's net change.
+        """
+        share_columns = [
+            index for index, header in enumerate(headers) if header.lower() == "akcie"
+        ]
+        if len(share_columns) < 2 or "Kusy" not in headers:
+            return
+
+        current_quantity_index = share_columns[1]
+        headers[current_quantity_index] = self._CURRENT_QUANTITY_HEADER
+        reader.fieldnames = headers
 
     def _clean_rows_generator(
         self, reader: csv.DictReader[str], header_map: dict[str, str]
