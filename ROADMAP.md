@@ -53,7 +53,7 @@ A lightweight, privacy-focused web application that parses broker exports (CSV/P
   - [x] **Alembic Database Migrations:** Implemented the Alembic migration framework, established programmatic migrations on application startup, and secured SQLite locks.
   - [x] **Pragmatic Layered Architecture:** Refactored backend routers to strictly follow 3-tier layering (Routers -> Services -> CRUD) and introduced structured Domain Exception handling.
   - [x] **Multi-Portfolio DB Schema:** Implemented the `Portfolio` model in the database to support separate accounts/portfolios per broker per user.
-
+a
 ### Phase 5: Premium Visual Facelift & DB Persistence Onboarding (Completed 🎉)
 * **Sprint 8: Swiss-Style UI & Unified Persistence**
   - [x] **Swiss-Style Dashboard Facelift:** Refactor Jinja2 templates into clean, modular sub-components (< 150 lines) based on the premium minimalist layout.

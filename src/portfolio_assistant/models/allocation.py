@@ -19,6 +19,8 @@ class AssetAllocation(BaseModel):
         market_value (Decimal): The total market value (quantity *
             current_price).
         percentage (Decimal): The percentage share of this asset in the portfolio.
+        sector (str | None): The asset sector from cached ticker metadata.
+        region (str | None): The asset country or region from cached ticker metadata.
     """
 
     ticker: str
@@ -26,6 +28,8 @@ class AssetAllocation(BaseModel):
     current_price: Decimal
     market_value: Decimal
     percentage: Decimal
+    sector: str | None = "Unknown"
+    region: str | None = "Unknown"
 
 
 class PortfolioAllocationResponse(BaseModel):
@@ -37,6 +41,6 @@ class PortfolioAllocationResponse(BaseModel):
         allocations (list[AssetAllocation]): List of individual asset allocations.
     """
 
-    portfolio_id: int
+    portfolio_id: int | None
     total_value: Decimal
     allocations: list[AssetAllocation]

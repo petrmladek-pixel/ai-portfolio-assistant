@@ -1,20 +1,25 @@
 """Allocation calculation service for portfolio management.
 
 This module provides stateless calculation logic for determining portfolio
-asset allocations based on transaction history and current market prices.
+asset allocations based on current positions and market prices.
 """
 
+from collections.abc import Sequence
 from decimal import Decimal
 from typing import TypedDict
 
-from sqlmodel import Session
+from sqlmodel import Session, select
 
-from portfolio_assistant.crud import transaction as transaction_crud
 from portfolio_assistant.models.allocation import (
     AssetAllocation,
     PortfolioAllocationResponse,
 )
-from portfolio_assistant.models.portfolio import TransactionType
+from portfolio_assistant.models.db_models import Portfolio, Position
+from portfolio_assistant.services.market_data.yfinance import (
+    YFinanceMarketDataService,
+)
+from portfolio_assistant.services.metadata_cache import MetadataCacheService
+from portfolio_assistant.services.price_cache import PriceCacheService
 
 
 class _AllocationDraft(TypedDict):
@@ -27,55 +32,57 @@ class _AllocationDraft(TypedDict):
 
 
 class AllocationService:
-    """Service for calculating portfolio allocations from transaction data."""
+    """Service for calculating portfolio allocations from current positions."""
 
-    def calculate_portfolio_allocations(
+    async def calculate_portfolio_allocations(
         self,
         session: Session,
-        portfolio_id: int,
-        current_prices: dict[str, Decimal],
+        portfolio_id: int | None = None,
+        user_id: int | None = None,
     ) -> PortfolioAllocationResponse:
         """Calculate asset allocations for a portfolio.
 
         Args:
             session (Session): The database session.
-            portfolio_id (int): The ID of the portfolio to analyze.
-            current_prices (dict[str, Decimal]): Mapping of ticker symbols to
-                current market prices.
-
+            portfolio_id (int | None): The ID of the portfolio to analyze, or
+                None to analyze all portfolios.
+            user_id (int | None): Restrict an all-portfolios analysis to a user.
         Returns:
             PortfolioAllocationResponse: The calculated allocation data.
         """
-        transactions = transaction_crud.get_portfolio_transactions(
-            session, portfolio_id
-        )
-
-        net_quantities: dict[str, Decimal] = {}
-        for txn in transactions:
-            if txn.transaction_type == TransactionType.BUY:
-                net_quantities[txn.ticker] = (
-                    net_quantities.get(txn.ticker, Decimal("0")) + txn.quantity
-                )
-            elif txn.transaction_type == TransactionType.SELL:
-                net_quantities[txn.ticker] = (
-                    net_quantities.get(txn.ticker, Decimal("0")) - txn.quantity
-                )
-
-        filtered_assets = {
-            ticker: quantity
-            for ticker, quantity in net_quantities.items()
-            if quantity > 0
-        }
+        if portfolio_id is None:
+            if user_id is None:
+                positions = session.exec(select(Position)).all()
+            else:
+                positions = session.exec(
+                    select(Position).join(Portfolio).where(Portfolio.user_id == user_id)
+                ).all()
+        else:
+            positions = session.exec(
+                select(Position).where(Position.portfolio_id == portfolio_id)
+            ).all()
+        tickers = list({pos.ticker for pos in positions if pos.ticker != "CASH"})
+        prices = PriceCacheService.get_current_prices(session, tickers)
+        exchange_rates = await self._get_exchange_rates(session, positions)
+        metadata_by_ticker = MetadataCacheService.get_tickers_metadata(session, tickers)
 
         allocations: list[_AllocationDraft] = []
         total_value = Decimal("0.00")
-        for ticker, quantity in filtered_assets.items():
-            current_price = current_prices.get(ticker, Decimal("0.00"))
-            market_value = quantity * current_price
+        for position in positions:
+            if position.ticker == "CASH":
+                current_price = position.unit_cost
+                market_value = position.quantity * position.unit_cost
+            else:
+                current_price = prices[position.ticker]
+                market_value = (
+                    position.quantity
+                    * current_price
+                    * exchange_rates[position.currency]
+                )
             allocations.append(
                 {
-                    "ticker": ticker,
-                    "quantity": quantity,
+                    "ticker": position.ticker,
+                    "quantity": position.quantity,
                     "current_price": current_price,
                     "market_value": market_value,
                 }
@@ -92,6 +99,13 @@ class AllocationService:
         final_allocations: list[AssetAllocation] = []
         for alloc in allocations:
             percentage = (alloc["market_value"] / total_value) * 100
+            if alloc["ticker"] == "CASH":
+                sector = "Cash"
+                region = "Cash"
+            else:
+                metadata = metadata_by_ticker.get(alloc["ticker"], {})
+                sector = str(metadata.get("sector") or "Unknown")
+                region = str(metadata.get("country") or "Unknown")
             final_allocations.append(
                 AssetAllocation(
                     ticker=alloc["ticker"],
@@ -99,6 +113,8 @@ class AllocationService:
                     current_price=alloc["current_price"],
                     market_value=alloc["market_value"],
                     percentage=percentage,
+                    sector=sector,
+                    region=region,
                 )
             )
 
@@ -107,3 +123,22 @@ class AllocationService:
             total_value=total_value,
             allocations=final_allocations,
         )
+
+    @staticmethod
+    async def _get_exchange_rates(
+        session: Session,
+        positions: Sequence[Position],
+    ) -> dict[str, Decimal]:
+        """Return exchange rates for converting position values to CZK."""
+        currencies = {
+            position.currency
+            for position in positions
+            if position.ticker != "CASH" and position.currency != "CZK"
+        }
+        exchange_rates = {"CZK": Decimal("1")}
+        market_data = YFinanceMarketDataService(db_session=session)
+        for currency in currencies:
+            exchange_rates[currency] = await market_data.get_exchange_rate(
+                currency, "CZK"
+            )
+        return exchange_rates
