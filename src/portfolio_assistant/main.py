@@ -10,6 +10,7 @@ from decimal import Decimal
 
 from fastapi import FastAPI, Response
 from fastapi.responses import FileResponse
+from fastapi.staticfiles import StaticFiles
 from sqlmodel import Session, select
 
 from .config import get_settings
@@ -133,6 +134,11 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
 
 
 app = FastAPI(title=settings.app_name, lifespan=lifespan)
+app.mount(
+    "/static",
+    StaticFiles(directory="src/portfolio_assistant/static"),
+    name="static",
+)
 
 # Include routes
 app.include_router(auth.router)

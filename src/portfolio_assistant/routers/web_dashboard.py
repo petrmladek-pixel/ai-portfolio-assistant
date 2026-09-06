@@ -29,9 +29,6 @@ from portfolio_assistant.models.portfolio import (
 )
 from portfolio_assistant.models.user import User
 from portfolio_assistant.models.valuation import ValuedPortfolio
-from portfolio_assistant.services.portfolio_aggregation_service import (
-    PortfolioAggregationService,
-)
 from portfolio_assistant.services.portfolio_merger import PortfolioMerger
 from portfolio_assistant.services.portfolio_service import PortfolioService
 from portfolio_assistant.services.valuation.engine import ValuationService
@@ -39,7 +36,6 @@ from portfolio_assistant.services.valuation.engine import ValuationService
 from ..core.database import get_db_session
 from .web import (
     format_currency,
-    get_portfolio_aggregation_service,
     get_portfolio_merger,
     get_portfolio_service,
     get_valuation_service,
@@ -74,9 +70,6 @@ async def dashboard_get(
     valuation_service: Annotated[ValuationService, Depends(get_valuation_service)],
     portfolio_merger: Annotated[PortfolioMerger, Depends(get_portfolio_merger)],
     portfolio_service: Annotated[PortfolioService, Depends(get_portfolio_service)],
-    portfolio_aggregation: Annotated[
-        PortfolioAggregationService, Depends(get_portfolio_aggregation_service)
-    ],
     session: Annotated[Session, Depends(get_db_session)],
     portfolio_id: str | int | None = None,
     current_user: Annotated[User | None, Depends(get_optional_current_user)] = None,
@@ -138,14 +131,6 @@ async def dashboard_get(
                 perf_counter() - valuation_started_at,
             )
             context.update(_valuation_context(valued))
-
-            # Get portfolio allocation data for sector and country charts
-            # Use the first portfolio's ID for allocation (or merged portfolio)
-            if selected and selected[0].id is not None:
-                allocation = portfolio_aggregation.get_portfolio_allocation(
-                    selected[0].id
-                )
-                context.update(_allocation_context(allocation))
 
             # The template does not render this value. Keep Gemini analysis on the
             # upload workflow instead of blocking every portfolio switch on an API
@@ -364,41 +349,4 @@ def _valuation_context(valued: ValuedPortfolio) -> dict[str, Any]:
         # including real yfinance sectors/countries
         "sector_allocation_json": json.dumps([{"label": "Akcie", "value": 100}]),
         "geo_allocation_json": json.dumps([{"label": "Globalni", "value": 100}]),
-    }
-
-
-def _allocation_context(allocation: dict[str, Any]) -> dict[str, Any]:
-    """Convert allocation data to context for Chart.js donut charts.
-
-    Args:
-        allocation: Dictionary with sectors and countries allocation data.
-
-    Returns:
-        dict[str, Any]: Context with JSON strings for sector and geo allocation.
-    """
-    # Convert sectors data to list format for Chart.js
-    sectors_list = [
-        {"label": label, "value": value}
-        for label, value in zip(
-            allocation["sectors"]["labels"],
-            allocation["sectors"]["data"],
-            strict=True,
-        )
-    ]
-
-    # Convert countries data to list format for Chart.js
-    countries_list = [
-        {"label": label, "value": value}
-        for label, value in zip(
-            allocation["countries"]["labels"],
-            allocation["countries"]["data"],
-            strict=True,
-        )
-    ]
-
-    return {
-        "sector_allocation_json": json.dumps(sectors_list),
-        "geo_allocation_json": json.dumps(countries_list),
-        "sector_count": str(len(allocation["sectors"]["labels"])),
-        "region_count": str(len(allocation["countries"]["labels"])),
     }

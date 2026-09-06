@@ -2,7 +2,7 @@
 
 from datetime import date
 from decimal import Decimal
-from unittest.mock import patch
+from unittest.mock import AsyncMock, patch
 
 from fastapi.testclient import TestClient
 from sqlmodel import Session
@@ -10,8 +10,7 @@ from sqlmodel import Session
 from portfolio_assistant.core.database import get_db_session
 from portfolio_assistant.dependencies import get_current_user
 from portfolio_assistant.main import app
-from portfolio_assistant.models.db_models import Portfolio, Position, Transaction
-from portfolio_assistant.models.portfolio import TransactionType
+from portfolio_assistant.models.db_models import Portfolio, Position
 from portfolio_assistant.models.user import User
 
 client = TestClient(app)
@@ -58,6 +57,33 @@ def test_get_portfolio_me_with_data(db_session: Session):
         portfolio_id=portfolio.id,
     )
     db_session.add(position)
+    db_session.commit()
+
+    other_user = User(email="other@example.com", hashed_password="hash")
+    db_session.add(other_user)
+    db_session.commit()
+    db_session.refresh(other_user)
+
+    other_portfolio = Portfolio(
+        name="Other allocation",
+        broker="Fio",
+        user_id=other_user.id,
+    )
+    db_session.add(other_portfolio)
+    db_session.commit()
+    db_session.refresh(other_portfolio)
+
+    db_session.add(
+        Position(
+            asset_name="Cash",
+            ticker="CASH",
+            currency="USD",
+            quantity=Decimal("400"),
+            unit_cost=Decimal("1"),
+            acquisition_date=date(2025, 1, 1),
+            portfolio_id=other_portfolio.id,
+        )
+    )
     db_session.commit()
 
     app.dependency_overrides[get_current_user] = lambda: user
@@ -124,30 +150,62 @@ def test_get_portfolio_allocations(db_session: Session) -> None:
     db_session.commit()
     db_session.refresh(portfolio)
 
-    transaction = Transaction(
+    position = Position(
+        asset_name="Apple Inc.",
         ticker="AAPL",
+        currency="USD",
         quantity=Decimal("2"),
-        transaction_type=TransactionType.BUY,
+        unit_cost=Decimal("140.00"),
+        acquisition_date=date(2025, 1, 1),
         portfolio_id=portfolio.id,
     )
-    db_session.add(transaction)
+    db_session.add(position)
     db_session.commit()
 
     app.dependency_overrides[get_current_user] = lambda: user
     app.dependency_overrides[get_db_session] = lambda: db_session
 
     try:
-        with patch(
-            "portfolio_assistant.routers.allocations."
-            "PriceCacheService.get_current_prices",
-            return_value={"AAPL": Decimal("150.00")},
+        with (
+            patch(
+                "portfolio_assistant.services.allocation."
+                "PriceCacheService.get_current_prices",
+                return_value={"AAPL": Decimal("150.00")},
+            ),
+            patch(
+                "portfolio_assistant.services.allocation."
+                "MetadataCacheService.get_tickers_metadata",
+                return_value={
+                    "AAPL": {
+                        "sector": "Technology",
+                        "country": "United States",
+                    },
+                },
+            ),
+            patch(
+                "portfolio_assistant.services.allocation."
+                "YFinanceMarketDataService.get_exchange_rate",
+                new_callable=AsyncMock,
+                return_value=Decimal("1"),
+            ),
         ):
             response = client.get(f"/api/portfolios/{portfolio.id}/allocations")
+            all_response = client.get("/api/portfolios/all/allocations")
 
         assert response.status_code == 200
         data = response.json()
         assert data["portfolio_id"] == portfolio.id
         assert Decimal(data["total_value"]) == Decimal("300.00")
         assert data["allocations"][0]["ticker"] == "AAPL"
+        assert data["allocations"][0]["sector"] == "Technology"
+        assert data["allocations"][0]["region"] == "United States"
+
+        assert all_response.status_code == 200
+        all_data = all_response.json()
+        assert all_data["portfolio_id"] is None
+        assert Decimal(all_data["total_value"]) == Decimal("300.00")
+        assert [allocation["ticker"] for allocation in all_data["allocations"]] == [
+            "AAPL"
+        ]
     finally:
         app.dependency_overrides.clear()

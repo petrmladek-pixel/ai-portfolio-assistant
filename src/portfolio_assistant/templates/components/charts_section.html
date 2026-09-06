@@ -1,47 +1,80 @@
-<section class="grid grid-cols-1 gap-4 lg:grid-cols-3">
-  <!-- Sektorové rozdělení (Ošetřeno proti přetečení na úzkých obrazovkách) -->
-  <div class="flex flex-col rounded-sm border border-border bg-card p-6 min-w-0">
-    <h3 class="mb-6 text-[11px] font-semibold uppercase tracking-wider text-foreground">
-      Sektorové rozdělení
-    </h3>
-    <div id="donut-sector" class="w-full min-w-0 overflow-hidden">
-      <!-- Generováno skriptem v dashboard.html -->
-    </div>
+<div x-data='portfolioDashboard({{ selected_portfolio_id | tojson }})'>
+  <div
+    x-cloak
+    x-show="loading"
+    class="flex min-h-64 items-center justify-center"
+    role="status"
+    aria-live="polite"
+  >
+    <span
+      class="size-8 animate-spin rounded-full border-2 border-border border-t-primary"
+    >
+      <span class="sr-only">Loading dashboard allocations</span>
+    </span>
   </div>
 
-  <!-- Geografické rozdělení (Ošetřeno proti přetečení na úzkých obrazovkách) -->
-  <div class="flex flex-col rounded-sm border border-border bg-card p-6 min-w-0">
-    <h3 class="mb-6 text-[11px] font-semibold uppercase tracking-wider text-foreground">
-      Geografické rozdělení
-    </h3>
-    <div id="donut-geo" class="w-full min-w-0 overflow-hidden">
-      <!-- Generováno skriptem v dashboard.html -->
-    </div>
-  </div>
+  <p
+    x-cloak
+    x-show="errorMessage"
+    x-text="errorMessage"
+    class="rounded-sm border border-red-300 bg-red-50 p-4 text-sm text-red-800"
+    role="alert"
+  ></p>
 
-  <!-- Váhy pozic (Top 5 progress bars) -->
-  <div class="flex flex-col rounded-sm border border-border bg-card p-6">
-    <h3 class="mb-6 text-[11px] font-semibold uppercase tracking-wider text-foreground">
-      Váhy pozic (Top 5)
-    </h3>
-    <ul id="weight-bars" class="flex flex-1 flex-col justify-center gap-5">
-      {% for asset in top_weights | default([
-        {'label': 'AAPL', 'value': 18, 'color': '#475569'},
-        {'label': 'MSFT', 'value': 14, 'color': '#6b7280'},
-        {'label': 'TSLA', 'value': 10, 'color': '#0f766e'},
-        {'label': 'NVDA', 'value': 9, 'color': '#b45309'},
-        {'label': 'AMZN', 'value': 7, 'color': '#374151'}
-      ]) %}
-      <li>
-        <div class="mb-2 flex items-baseline justify-between font-mono text-sm">
-          <span class="font-medium text-foreground">{{ asset.label }}</span>
-          <span class="text-muted-foreground">{{ asset.value }}&nbsp;%</span>
-        </div>
-        <div class="h-1.5 w-full overflow-hidden rounded-sm bg-secondary">
-          <div class="h-full rounded-sm" style="width: {{ asset.value }}%; background-color: {{ asset.color }}"></div>
-        </div>
-      </li>
-      {% endfor %}
-    </ul>
-  </div>
-</section>
+  <section
+    x-cloak
+    x-show="!loading && !errorMessage"
+    class="grid grid-cols-1 gap-4 lg:grid-cols-3"
+  >
+    <article class="flex min-w-0 flex-col rounded-sm border border-border bg-card p-6">
+      <h3
+        class="mb-6 text-[11px] font-semibold uppercase tracking-wider text-foreground"
+      >
+        Sektorové rozdělení
+      </h3>
+      <div class="relative h-64 w-full">
+        <canvas x-ref="sectorCanvas"></canvas>
+      </div>
+    </article>
+
+    <article class="flex min-w-0 flex-col rounded-sm border border-border bg-card p-6">
+      <h3
+        class="mb-6 text-[11px] font-semibold uppercase tracking-wider text-foreground"
+      >
+        Geografické rozdělení
+      </h3>
+      <div class="relative h-64 w-full">
+        <canvas x-ref="regionCanvas"></canvas>
+      </div>
+    </article>
+
+    <article class="flex flex-col rounded-sm border border-border bg-card p-6">
+      <h3
+        class="mb-6 text-[11px] font-semibold uppercase tracking-wider text-foreground"
+      >
+        Váhy pozic (Top 5)
+      </h3>
+      <ul class="flex flex-1 flex-col justify-center gap-5">
+        <template x-for="pos in topPositions" :key="pos.ticker">
+          <li>
+            <div class="mb-2 flex items-baseline justify-between font-mono text-sm">
+              <span class="font-medium text-foreground" x-text="pos.ticker"></span>
+              <span class="text-muted-foreground">
+                <span x-text="formatPercentage(pos.percentage)"></span>%
+              </span>
+            </div>
+            <div class="h-1.5 w-full overflow-hidden rounded-sm bg-secondary">
+              <div
+                class="h-full rounded-sm bg-primary transition-all duration-300"
+                :style="`width: ${progressWidth(pos.percentage)}%`"
+              ></div>
+            </div>
+          </li>
+        </template>
+        <li x-show="topPositions.length === 0" class="text-sm text-muted-foreground">
+          No allocation data is available.
+        </li>
+      </ul>
+    </article>
+  </section>
+</div>

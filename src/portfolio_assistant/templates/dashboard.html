@@ -84,19 +84,9 @@
   </main>
 </div>
 
+<script src="{{ url_for('static', path='js/portfolio-dashboard.js') }}"></script>
 <script>
-  // ========================= PREMIUM MUTED COLOR PALETTE =========================
-  const chartColors = ['#475569', '#6b7280', '#0f766e', '#b45309', '#374151', '#d1d5db'];
-
-  // ========================= DYNAMIC DATA FROM BACKEND =========================
-  // Safely parse JSON strings to avoid IDE/VS Code syntax warnings
-  const sectorAllocation = JSON.parse('{{ sector_allocation_json | safe }}' || '[]');
-  const geoAllocation = JSON.parse('{{ geo_allocation_json | safe }}' || '[]');
-
-  // Parse boolean flag from Jinja2 safely using standard JavaScript literal format
   const hasData = JSON.parse('{{ "true" if has_data else "false" }}' || 'false');
-
-  // SVG Donut Generator
   const SIZE = 168, STROKE = 22, RADIUS = (SIZE - STROKE) / 2, CIRCUMFERENCE = 2 * Math.PI * RADIUS, GAP = 1.2;
 
   function renderDonut(targetId, slices, centerValue, centerLabel) {
@@ -157,8 +147,8 @@
       </div>`;
   }
 
-  // Render donut charts ONLY if data exists
-  if (hasData) {
+  // Legacy static donuts are disabled in favor of the Alpine controller.
+  if (false && hasData) {
     renderDonut('donut-sector', sectorAllocation, '{{ sector_count | default("5+") }}', 'Sektorů');
     renderDonut('donut-geo', geoAllocation, '{{ region_count | default("5") }}', 'Regionů');
   }
