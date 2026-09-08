@@ -88,7 +88,7 @@ def test_initialize_database_creates_schema(tmp_path, monkeypatch):
     run_db_migrations()
 
     test_engine = create_engine(database_url)
-    assert {"user", "portfolio", "position"} <= set(
+    assert {"user", "portfolios", "position"} <= set(
         inspect(test_engine).get_table_names()
     )
 

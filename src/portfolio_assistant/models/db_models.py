@@ -18,6 +18,8 @@ class PortfolioBase(SQLModel):
 
 
 class Portfolio(PortfolioBase, table=True):
+    __tablename__ = "portfolios"
+
     id: int | None = Field(default=None, primary_key=True)
 
     positions: list["Position"] = Relationship(back_populates="portfolio")
@@ -36,7 +38,7 @@ class PositionBase(SQLModel):
         sa_column=Column(Numeric(precision=18, scale=8, asdecimal=True))
     )
     acquisition_date: date
-    portfolio_id: int | None = Field(default=None, foreign_key="portfolio.id")
+    portfolio_id: int | None = Field(default=None, foreign_key="portfolios.id")
 
 
 class Position(PositionBase, table=True):
@@ -54,4 +56,4 @@ class Transaction(SQLModel, table=True):
         sa_column=Column(Numeric(precision=18, scale=8, asdecimal=True))
     )
     transaction_type: TransactionType
-    portfolio_id: int = Field(foreign_key="portfolio.id", index=True)
+    portfolio_id: int = Field(foreign_key="portfolios.id", index=True)
