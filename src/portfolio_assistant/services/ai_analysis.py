@@ -3,6 +3,7 @@
 import json
 import re
 from datetime import datetime, timedelta
+from pathlib import Path
 from typing import Any
 
 from google import genai
@@ -23,11 +24,10 @@ from portfolio_assistant.models.user import User
 from portfolio_assistant.services.allocation import AllocationService
 
 ANALYSIS_COOLDOWN = timedelta(days=7)
-DEFAULT_ANALYSIS_PROMPT = (
-    "Provide an educational, balanced portfolio review. Cover diversification, "
-    "concentration, sector and regional exposure, key risks, strengths, and "
-    "practical next steps. Do not provide personalized investment advice."
+_DEFAULT_PROMPT_PATH = (
+    Path(__file__).resolve().parent.parent / "prompts" / "default_analysis.md"
 )
+DEFAULT_ANALYSIS_PROMPT = _DEFAULT_PROMPT_PATH.read_text(encoding="utf-8").strip()
 
 
 class AnalysisCooldownError(ValueError):

@@ -1,5 +1,6 @@
 """Business workflow for stateful Gemini portfolio chat."""
 
+from pathlib import Path
 from typing import Any
 
 from google import genai
@@ -19,12 +20,10 @@ from portfolio_assistant.models.allocation import PortfolioAllocationResponse
 from portfolio_assistant.models.user import User
 from portfolio_assistant.services.allocation import AllocationService
 
-DEFAULT_CHAT_PROMPT = (
-    "You are a careful portfolio assistant. Give educational, balanced answers "
-    "about the portfolio context supplied below. Do not provide personalized "
-    "investment advice. Clearly state uncertainty and encourage users to consult "
-    "a qualified financial professional when appropriate."
+_DEFAULT_PROMPT_PATH = (
+    Path(__file__).resolve().parent.parent / "prompts" / "default_chat.md"
 )
+DEFAULT_CHAT_PROMPT = _DEFAULT_PROMPT_PATH.read_text(encoding="utf-8").strip()
 
 
 class AIChatService:
