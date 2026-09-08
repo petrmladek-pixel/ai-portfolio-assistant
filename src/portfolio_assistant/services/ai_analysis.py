@@ -85,6 +85,16 @@ class AIAnalysisService:
             db.rollback()
             raise PersistenceError from error
 
+    def get_latest_analysis(
+        self,
+        db: Session,
+        portfolio_id: int,
+        user: User,
+    ) -> PortfolioAnalysis | None:
+        """Return the latest cached analysis for an owned portfolio."""
+        self._ensure_owned_portfolio(db, portfolio_id, user)
+        return ai_crud.get_latest_analysis(db, portfolio_id)
+
     @staticmethod
     def _ensure_owned_portfolio(db: Session, portfolio_id: int, user: User) -> None:
         """Ensure the supplied portfolio belongs to the requesting user."""

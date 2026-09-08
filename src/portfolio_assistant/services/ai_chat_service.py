@@ -65,6 +65,16 @@ class AIChatService:
         self._save_message(db, portfolio_id, "model", response_text)
         return response_text
 
+    def get_chat_history(
+        self,
+        db: Session,
+        portfolio_id: int,
+        user: User,
+    ) -> list[ChatMessage]:
+        """Return the latest ten messages for an owned portfolio."""
+        self._ensure_owned_portfolio(db, portfolio_id, user)
+        return ai_chat_crud.get_chat_history(db, portfolio_id, limit=10)
+
     @staticmethod
     def _ensure_owned_portfolio(db: Session, portfolio_id: int, user: User) -> None:
         """Ensure the supplied portfolio belongs to the requesting user."""
