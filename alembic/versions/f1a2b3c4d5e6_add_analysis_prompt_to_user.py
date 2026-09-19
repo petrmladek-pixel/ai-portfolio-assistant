@@ -20,9 +20,9 @@ depends_on: str | Sequence[str] | None = None
 
 def upgrade() -> None:
     """Add the optional custom analysis prompt."""
-    op.add_column("user", sa.Column("analysis_prompt", sa.String(), nullable=True))
+    op.add_column("users", sa.Column("analysis_prompt", sa.String(), nullable=True))
 
 
 def downgrade() -> None:
     """Remove the custom analysis prompt."""
-    op.drop_column("user", "analysis_prompt")
+    op.drop_column("users", "analysis_prompt")

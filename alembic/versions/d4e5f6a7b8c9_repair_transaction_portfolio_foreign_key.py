@@ -19,39 +19,40 @@ depends_on: str | Sequence[str] | None = None
 
 
 def upgrade() -> None:
-    """Preserve legacy portfolios and point transactions at the canonical table."""
+    """Keep canonical portfolios and repair transaction foreign keys."""
     bind = op.get_bind()
     inspector = sa.inspect(bind)
-    _migrate_legacy_portfolios(bind, inspector)
-    inspector = sa.inspect(bind)
-    if not inspector.has_table("transaction"):
-        return
-    if _references_portfolios(inspector):
-        return
-
-    op.rename_table("transaction", "transaction_legacy")
-    _create_transaction_table()
-    op.execute(
-        sa.text(
-            'INSERT INTO "transaction" '
-            "(id, ticker, quantity, transaction_type, portfolio_id) "
-            "SELECT id, ticker, quantity, transaction_type, portfolio_id "
-            "FROM transaction_legacy"
+    if inspector.has_table("transaction") and not _references_portfolios(inspector):
+        op.rename_table("transaction", "transaction_legacy")
+        _create_transaction_table()
+        op.execute(
+            sa.text(
+                'INSERT INTO "transaction" '
+                "(id, ticker, quantity, transaction_type, portfolio_id) "
+                "SELECT legacy.id, legacy.ticker, legacy.quantity, "
+                "legacy.transaction_type, legacy.portfolio_id "
+                "FROM transaction_legacy AS legacy "
+                "JOIN portfolios AS canonical "
+                "ON canonical.id = legacy.portfolio_id"
+            )
         )
-    )
-    op.drop_table("transaction_legacy")
-    op.create_index(
-        op.f("ix_transaction_portfolio_id"),
-        "transaction",
-        ["portfolio_id"],
-        unique=False,
-    )
-    op.create_index(
-        op.f("ix_transaction_ticker"),
-        "transaction",
-        ["ticker"],
-        unique=False,
-    )
+        op.drop_table("transaction_legacy")
+        op.create_index(
+            op.f("ix_transaction_portfolio_id"),
+            "transaction",
+            ["portfolio_id"],
+            unique=False,
+        )
+        op.create_index(
+            op.f("ix_transaction_ticker"),
+            "transaction",
+            ["ticker"],
+            unique=False,
+        )
+
+    inspector = sa.inspect(bind)
+    if inspector.has_table("portfolio"):
+        op.drop_table("portfolio")
 
 
 def downgrade() -> None:
@@ -70,39 +71,6 @@ def _references_portfolios(inspector: sa.Inspector) -> bool:
         and foreign_key["referred_table"] == "portfolios"
         and foreign_key["referred_columns"] == ["id"]
         for foreign_key in foreign_keys
-    )
-
-
-def _migrate_legacy_portfolios(bind: sa.Connection, inspector: sa.Inspector) -> None:
-    """Copy a legacy singular table after the historical repair created plural."""
-    if not inspector.has_table("portfolio"):
-        return
-    if not inspector.has_table("portfolios"):
-        raise RuntimeError("Canonical portfolios table is missing.")
-
-    conflict = bind.execute(
-        sa.text(
-            "SELECT legacy.id FROM portfolio AS legacy "
-            "JOIN portfolios AS canonical ON canonical.id = legacy.id "
-            "WHERE canonical.name IS NOT legacy.name "
-            "OR canonical.broker IS NOT legacy.broker "
-            "OR canonical.description IS NOT legacy.description "
-            "OR canonical.user_id IS NOT legacy.user_id LIMIT 1"
-        )
-    ).scalar_one_or_none()
-    if conflict is not None:
-        raise RuntimeError(
-            "Cannot migrate legacy portfolio data because portfolio IDs conflict."
-        )
-
-    bind.execute(
-        sa.text(
-            "INSERT INTO portfolios (id, name, broker, description, user_id) "
-            "SELECT legacy.id, legacy.name, legacy.broker, legacy.description, "
-            "legacy.user_id FROM portfolio AS legacy "
-            "WHERE NOT EXISTS (SELECT 1 FROM portfolios AS canonical "
-            "WHERE canonical.id = legacy.id)"
-        )
     )
 
 

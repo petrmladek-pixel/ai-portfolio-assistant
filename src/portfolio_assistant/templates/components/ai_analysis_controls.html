@@ -1,0 +1,71 @@
+<section class="rounded-sm border border-border bg-card p-6">
+  <div class="flex flex-wrap items-start justify-between gap-4 border-b border-border pb-5">
+    <div>
+      <p class="text-[11px] font-semibold uppercase tracking-wider text-gain">
+        Strategic analysis
+      </p>
+      <h3 class="mt-1 text-xl font-bold tracking-tight text-foreground">
+        Hloubková SWOT analýza
+      </h3>
+      <p class="mt-1 text-sm text-muted-foreground">
+        Získejte strukturovaný report podle vybrané investiční persony.
+      </p>
+    </div>
+    <template x-if="createdAt">
+      <span class="rounded-sm bg-secondary px-3 py-1.5 font-mono text-xs text-muted-foreground">
+        Poslední analýza: <span x-text="formatDate(createdAt)"></span>
+        <span x-show="analysisCached" class="ml-1 font-semibold text-gain">
+          (z cache)
+        </span>
+      </span>
+    </template>
+  </div>
+
+  <div class="mt-5 grid gap-4 md:grid-cols-2">
+    <div>
+      <label for="persona-select" class="text-label">Investiční persona</label>
+      <select id="persona-select" x-model="selectedPersona" class="input-control">
+        <option value="WARREN_BUFFETT">Warren Buffett / Value Investor</option>
+        <option value="GROWTH">Growth / Tech Aggressive</option>
+        <option value="CUSTOM">Custom Persona</option>
+      </select>
+    </div>
+    <label class="flex cursor-pointer items-center gap-3 rounded-sm border border-border bg-secondary/40 px-4 py-3 text-sm text-foreground">
+      <input id="force-refresh-toggle" type="checkbox" x-model="forceRefresh" class="size-4 rounded border-border" />
+      <span>
+        <span class="block font-medium">Vynutit novou analýzu</span>
+        <span class="block text-xs text-muted-foreground">Obejít sedmidenní cache.</span>
+      </span>
+    </label>
+  </div>
+
+  <div class="mt-4">
+    <label for="user-context-textarea" class="text-label">Kontext investora</label>
+    <textarea
+      id="user-context-textarea"
+      x-model="userContext"
+      rows="4"
+      class="input-control resize-y"
+      placeholder="Popište své záměry, horizont nebo důvody alokace (např. 'Nadvážení CZ bank z doby COVIDu, plánuji rotaci do USA ETF')..."
+    ></textarea>
+  </div>
+
+  <div class="mt-5 flex flex-wrap items-center justify-between gap-3 border-t border-border pt-5">
+    <p x-cloak x-show="errorMessage" role="alert" class="text-sm text-red-700" x-text="errorMessage"></p>
+    <button
+      type="button"
+      @click="runStrategicAnalysis()"
+      :disabled="isAnalyzing || !currentPortfolioId"
+      :aria-busy="isAnalyzing"
+      class="ml-auto inline-flex items-center gap-2 rounded-sm bg-primary px-5 py-2.5 text-sm font-medium text-primary-foreground disabled:cursor-not-allowed disabled:opacity-50"
+    >
+      <svg x-cloak x-show="isAnalyzing" class="size-4 animate-spin" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+        <circle cx="12" cy="12" r="9" stroke="currentColor" stroke-width="3" class="opacity-25"></circle>
+        <path d="M12 3a9 9 0 0 1 9 9" stroke="currentColor" stroke-width="3" class="opacity-90"></path>
+      </svg>
+      <span x-text="isAnalyzing ? 'Generuji SWOT analýzu…' : 'Spustit hloubkovou SWOT analýzu'">
+        Spustit hloubkovou SWOT analýzu
+      </span>
+    </button>
+  </div>
+</section>

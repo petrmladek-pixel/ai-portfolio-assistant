@@ -100,3 +100,20 @@ class GeminiAIService:
             return (
                 "AI Analysis is currently unavailable due to an external service error."
             )
+
+    async def generate_report(self, prompt: str) -> str:
+        """Generate a Markdown report from an already prepared prompt."""
+        if self._client is None:
+            raise RuntimeError("Gemini API key is not configured.")
+        try:
+            settings = get_settings()
+            response = await self._client.aio.models.generate_content(
+                model=settings.gemini_model or DEFAULT_GEMINI_MODEL,
+                contents=prompt,
+            )
+        except Exception as error:
+            raise RuntimeError("Gemini analysis request failed.") from error
+        response_text = getattr(response, "text", None)
+        if not isinstance(response_text, str) or not response_text.strip():
+            raise RuntimeError("Gemini returned an empty analysis response.")
+        return response_text.strip()

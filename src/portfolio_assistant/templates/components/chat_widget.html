@@ -1,8 +1,5 @@
-<script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/dompurify/dist/purify.min.js"></script>
-
 <section class="flex flex-col rounded-sm border border-border bg-card"
-  x-data="portfolioChat({{ selected_portfolio_id | tojson }})">
+  x-data='portfolioChat({{ selected_portfolio_id | tojson }})'>
   <div class="flex items-center gap-2 border-b border-border px-6 py-4">
     <span class="size-1.5 rounded-full bg-gain" aria-hidden="true"></span>
     <h3 class="text-[11px] font-semibold uppercase tracking-wider text-foreground">

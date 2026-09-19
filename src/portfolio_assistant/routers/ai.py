@@ -14,8 +14,11 @@ from portfolio_assistant.core.exceptions import (
     PersistenceError,
     PortfolioNotFoundError,
 )
+from portfolio_assistant.crud import portfolio as portfolio_crud
 from portfolio_assistant.dependencies import get_current_user
 from portfolio_assistant.models.ai import (
+    AIAnalysisRequest,
+    AIAnalysisResponse,
     ChatMessageResponse,
     ChatRequest,
     ChatResponse,
@@ -28,6 +31,9 @@ from portfolio_assistant.services.ai_analysis import (
     AIAnalysisService,
     AnalysisCooldownError,
 )
+from portfolio_assistant.services.ai_analysis_service import (
+    AIAnalysisService as PersonaAIAnalysisService,
+)
 from portfolio_assistant.services.ai_chat_service import AIChatService
 from portfolio_assistant.services.user_service import UserService
 
@@ -39,6 +45,11 @@ router = APIRouter(prefix="/api", tags=["ai"])
 def get_analysis_service() -> AIAnalysisService:
     """Provide the portfolio analysis workflow service."""
     return AIAnalysisService()
+
+
+def get_persona_analysis_service() -> PersonaAIAnalysisService:
+    """Provide the persona-aware portfolio analysis workflow service."""
+    return PersonaAIAnalysisService()
 
 
 def get_chat_service() -> AIChatService:
@@ -106,6 +117,75 @@ async def analyze_portfolio(
     except PersistenceError:
         logger.exception("Database error while saving portfolio analysis")
         raise _persistence_error() from None
+    except AIAnalysisError as error:
+        raise HTTPException(
+            status_code=status.HTTP_502_BAD_GATEWAY,
+            detail=str(error),
+        ) from None
+
+
+@router.post(
+    "/portfolios/{portfolio_id}/ai-analysis",
+    response_model=AIAnalysisResponse,
+)
+async def get_or_generate_ai_analysis(
+    portfolio_id: int,
+    payload: AIAnalysisRequest,
+    current_user: Annotated[User, Depends(get_current_user)],
+    session: Annotated[Session, Depends(get_db_session)],
+    analysis_service: Annotated[
+        PersonaAIAnalysisService,
+        Depends(get_persona_analysis_service),
+    ],
+) -> AIAnalysisResponse:
+    """Return a matching cached report or generate a persona-aware report."""
+    if current_user.id is None:
+        raise _portfolio_not_found()
+    portfolio = portfolio_crud.get_portfolio_for_user(
+        session,
+        portfolio_id,
+        current_user.id,
+    )
+    if portfolio is None:
+        raise _portfolio_not_found()
+    try:
+        return await analysis_service.get_or_generate_analysis(
+            session,
+            portfolio_id,
+            payload,
+        )
+    except AIAnalysisError as error:
+        raise HTTPException(
+            status_code=status.HTTP_502_BAD_GATEWAY,
+            detail=str(error),
+        ) from None
+    except SQLAlchemyError:
+        logger.exception("Database error while handling persona-aware analysis")
+        raise _persistence_error() from None
+
+
+@router.post(
+    "/portfolios/ai-analysis/all",
+    response_model=AIAnalysisResponse,
+)
+async def generate_all_portfolios_ai_analysis(
+    payload: AIAnalysisRequest,
+    current_user: Annotated[User, Depends(get_current_user)],
+    session: Annotated[Session, Depends(get_db_session)],
+    analysis_service: Annotated[
+        PersonaAIAnalysisService,
+        Depends(get_persona_analysis_service),
+    ],
+) -> AIAnalysisResponse:
+    """Generate an uncached report from every portfolio owned by the user."""
+    if current_user.id is None:
+        raise _portfolio_not_found()
+    try:
+        return await analysis_service.generate_all_portfolios_analysis(
+            session,
+            current_user.id,
+            payload,
+        )
     except AIAnalysisError as error:
         raise HTTPException(
             status_code=status.HTTP_502_BAD_GATEWAY,

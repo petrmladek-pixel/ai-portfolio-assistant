@@ -79,6 +79,41 @@ class PortfolioAnalysis(PortfolioAnalysisBase, table=True):
     )
 
 
+class PortfolioAIAnalysis(SQLModel, table=True):
+    """Persona-aware cached Markdown report for a portfolio."""
+
+    __tablename__ = "portfolio_ai_analyses"
+
+    id: int | None = Field(default=None, primary_key=True)
+    portfolio_id: int = Field(foreign_key="portfolios.id", index=True)
+    analysis_text: str
+    persona_id: str = Field(default="WARREN_BUFFETT", index=True)
+    user_context: str | None = Field(default=None)
+    portfolio_hash: str
+    created_at: datetime = Field(
+        default_factory=get_now_utc,
+        nullable=False,
+        sa_type=UTCDateTime,
+    )
+
+
+class AIAnalysisRequest(BaseModel):
+    """Payload for a persona-aware portfolio AI analysis."""
+
+    persona_id: str = "WARREN_BUFFETT"
+    user_context: str | None = PydanticField(default=None, max_length=2000)
+    force_refresh: bool = False
+
+
+class AIAnalysisResponse(BaseModel):
+    """Result of a persona-aware portfolio AI analysis."""
+
+    analysis_text: str
+    persona_id: str
+    cached: bool
+    created_at: datetime
+
+
 class ChatMessageBase(SQLModel):
     """Base fields for chat messages."""
 

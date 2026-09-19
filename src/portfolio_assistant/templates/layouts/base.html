@@ -9,6 +9,8 @@
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet" />
 
+    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/dompurify/dist/purify.min.js"></script>
     <!-- Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com"></script>
     <!-- Chart rendering -->
@@ -68,6 +70,45 @@
       * { border-color: rgb(var(--border)); }
       .font-mono { font-variant-numeric: tabular-nums; }
       [x-cloak] { display: none !important; }
+      .text-label {
+        display: block;
+        color: rgb(var(--muted-foreground));
+        font-size: 0.75rem;
+        font-weight: 600;
+        letter-spacing: 0.05em;
+        margin-bottom: 0.375rem;
+        text-transform: uppercase;
+      }
+      .input-control {
+        background: rgb(var(--card));
+        border: 1px solid rgb(var(--border));
+        border-radius: var(--radius);
+        color: rgb(var(--foreground));
+        display: block;
+        font-size: 0.875rem;
+        outline: none;
+        padding: 0.625rem 0.75rem;
+        width: 100%;
+      }
+      .input-control:focus { border-color: rgb(var(--foreground)); }
+      .analysis-markdown h1, .analysis-markdown h2, .analysis-markdown h3 {
+        font-weight: 700;
+        letter-spacing: -0.025em;
+        margin: 1.75rem 0 0.75rem;
+      }
+      .analysis-markdown h1 { font-size: 1.5rem; }
+      .analysis-markdown h2 { border-bottom: 1px solid rgb(var(--border)); font-size: 1.25rem; padding-bottom: 0.5rem; }
+      .analysis-markdown h3 { font-size: 1rem; }
+      .analysis-markdown p, .analysis-markdown ul, .analysis-markdown ol { margin: 0.75rem 0; }
+      .analysis-markdown ul, .analysis-markdown ol { padding-left: 1.25rem; }
+      .analysis-markdown ul { list-style: disc; }
+      .analysis-markdown ol { list-style: decimal; }
+      .analysis-markdown li + li { margin-top: 0.35rem; }
+      .analysis-markdown blockquote { border-left: 3px solid rgb(var(--gain)); color: rgb(var(--muted-foreground)); margin: 1rem 0; padding-left: 1rem; }
+      .analysis-markdown table { border-collapse: collapse; margin: 1.25rem 0; width: 100%; }
+      .analysis-markdown th, .analysis-markdown td { border: 1px solid rgb(var(--border)); padding: 0.75rem; text-align: left; vertical-align: top; }
+      .analysis-markdown th { background: rgb(var(--secondary)); font-size: 0.75rem; letter-spacing: 0.05em; text-transform: uppercase; }
+      .analysis-markdown code { background: rgb(var(--secondary)); font-family: "JetBrains Mono", monospace; font-size: 0.875em; padding: 0.125rem 0.25rem; }
     </style>
   </head>
   <body class="min-h-screen bg-background text-foreground">

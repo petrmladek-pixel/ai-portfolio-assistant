@@ -116,7 +116,7 @@ async def dashboard_get(
         context["selected_portfolio_id"] = selected_id
 
         # 4. Fetch, merge, and value positions
-        selected = _select_portfolios(session, user_id, norm_id, portfolios)
+        selected = _select_portfolios(session, user_id, selected_id, portfolios)
         imported = _to_imported_portfolios(selected)
 
         if imported:
