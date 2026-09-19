@@ -1,6 +1,8 @@
 from datetime import date
 from decimal import Decimal
 
+import pytest
+from sqlalchemy.exc import IntegrityError
 from sqlmodel import Session, select
 
 from portfolio_assistant.core import database
@@ -77,6 +79,18 @@ def test_get_db_session():
     session = next(session_gen)
     assert isinstance(session, Session)
     session.close()
+
+
+def test_sqlite_engine_enforces_foreign_keys() -> None:
+    """Reject records that violate SQLite foreign-key constraints."""
+    test_engine = database.create_database_engine("sqlite:///:memory:")
+    with test_engine.begin() as connection:
+        connection.exec_driver_sql("CREATE TABLE parent (id INTEGER PRIMARY KEY)")
+        connection.exec_driver_sql(
+            "CREATE TABLE child (parent_id INTEGER REFERENCES parent(id))"
+        )
+        with pytest.raises(IntegrityError):
+            connection.exec_driver_sql("INSERT INTO child (parent_id) VALUES (1)")
 
 
 def test_initialize_database_creates_schema(tmp_path, monkeypatch):

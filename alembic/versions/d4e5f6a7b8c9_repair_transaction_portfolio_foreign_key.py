@@ -55,9 +55,10 @@ def upgrade() -> None:
 
 
 def downgrade() -> None:
-    """Prevent an unsafe downgrade that could corrupt migrated portfolio data."""
+    """Require a database snapshot restore for an unsafe rollback request."""
     raise NotImplementedError(
-        "This data-preserving migration cannot be safely downgraded."
+        "This data-preserving migration cannot be safely downgraded. "
+        "Restore a database snapshot taken before this migration instead."
     )
 
 
