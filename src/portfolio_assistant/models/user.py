@@ -12,6 +12,7 @@ class UserBase(SQLModel):
     is_active: bool = Field(default=True)
     is_superuser: bool = Field(default=False)
     full_name: str | None = Field(default=None)
+    analysis_prompt: str | None = Field(default=None)
 
 
 class User(UserBase, table=True):

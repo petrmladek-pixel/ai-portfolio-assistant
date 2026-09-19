@@ -19,7 +19,7 @@ from .core.migrations import run_db_migrations
 from .core.security import hash_password
 from .models.db_models import Portfolio, Position
 from .models.user import User
-from .routers import allocations, auth, portfolio, web_dashboard, web_upload
+from .routers import ai, allocations, auth, portfolio, web_dashboard, web_upload
 from .routers.web import router
 
 settings = get_settings()
@@ -144,6 +144,7 @@ app.mount(
 app.include_router(auth.router)
 app.include_router(portfolio.router)
 app.include_router(allocations.router)
+app.include_router(ai.router)
 app.include_router(router)
 app.include_router(web_dashboard.router)
 app.include_router(web_upload.router)

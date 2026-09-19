@@ -31,3 +31,7 @@ class InvalidImportTypeError(DomainException):
 
 class PortfolioImportError(DomainException):
     """Raised when a broker portfolio file cannot be parsed."""
+
+
+class AIAnalysisError(DomainException):
+    """Raised when an AI portfolio analysis cannot be generated safely."""

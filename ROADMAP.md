@@ -53,29 +53,27 @@ A lightweight, privacy-focused web application that parses broker exports (CSV/P
   - [x] **Alembic Database Migrations:** Implemented the Alembic migration framework, established programmatic migrations on application startup, and secured SQLite locks.
   - [x] **Pragmatic Layered Architecture:** Refactored backend routers to strictly follow 3-tier layering (Routers -> Services -> CRUD) and introduced structured Domain Exception handling.
   - [x] **Multi-Portfolio DB Schema:** Implemented the `Portfolio` model in the database to support separate accounts/portfolios per broker per user.
-a
+
 ### Phase 5: Premium Visual Facelift & DB Persistence Onboarding (Completed 🎉)
 * **Sprint 8: Swiss-Style UI & Unified Persistence**
   - [x] **Swiss-Style Dashboard Facelift:** Refactor Jinja2 templates into clean, modular sub-components (< 150 lines) based on the premium minimalist layout.
   - [x] **Unified Upload Form:** Simplify the upload section to a single unified form with target portfolio selection, import type (DEGIRO/Fio), and a single file input.
   - [x] **Self-Healing DB & Startup Seeding:** Implement database self-healing seeder on startup that automatically populates a default portfolio and a guest demo portfolio (Warren Buffett portfolio) only in development environments.
 
-### Phase 6: Real-Data Caching, Architectural Hardening & AI Copilot (Current Focus 🎯)
-* **Sprint 9: Data Integration & Code Hygiene**
-  - [ ] **YFinance Service Split (Issue #66):** Refactor `YFinanceService` to clearly separate real-time price fetching from metadata cache operations, preventing service coupling.
-  - [ ] **Real-data Sector & Country Allocations (Issues #32, #57 & #60):** Fetch sector and country metadata from Yahoo Finance, cache them in `SQLiteISINCache`, and render separate Sector and Geographical Donut Charts on the dashboard.
-  - [ ] **Stateful AI Chat (Issues #29 & #61):** Implement `/api/chat` to allow follow-up conversations with Gemini, persisting chat history in the SQLite database.
-  - [ ] **Stateful AI Analysis & Cooldown (Issue #63):** Implement rate-limited, on-demand portfolio analysis cached in SQLite with a 7-day cooldown to prevent API cost spam.
-  - [ ] **Architectural Session Decoupling (Issue #67):** Refactor the service and API layers to fully decouple them from raw SQLAlchemy sessions, ensuring clean transactional boundaries.
-  - [ ] **Route Profiling Middleware (Issue #68):** Design and implement a reusable decorator or middleware to profile API endpoint latencies and log performance bottlenecks.
-  - [ ] **Timezone-Aware UTC Datetimes (Issue #69):** Audit and enforce consistent, timezone-aware UTC datetime fields across all SQLite models, preventing timezone offset bugs.
-  - [ ] **Automated SEC 13F Sync (Issue #62):** Implement a quarterly sync that fetches real-time elite holdings (Warren Buffett, Bridgewater, Scion) to dynamically update guest demo profiles.
+### Phase 6: Caching, Real-Data Visuals & Client-Side Reactivity (Completed 🎉)
+* **Sprint 9: Real-Time Cache Split & Stateless Engine**
+  - [x] **Timezone-Aware UTC Datetimes (Issue #69):** Audit and enforce consistent, timezone-aware UTC datetime fields across all SQLite models, preventing timezone offset bugs.
+  - [x] **Stateless Allocation Engine (Issue #70):** Implement isolated `AllocationService` and schema wrappers utilizing `decimal.Decimal` calculations.
+  - [x] **YFinance Cache Separation (Issue #71):** Refactor yfinance operations into `PriceCacheService` (15-min TTL) and `MetadataCacheService` (30-day TTL) to decouple pricing from structural metadata.
+* **Sprint 10: Unified Dashboard Reactive Refactoring**
+  - [x] **Unified Frontend Fetching (Issue #77):** Integrate a single client-side Alpine.js controller to dynamically fetch asset allocations for the selected portfolio.
+  - [x] **Non-Reactive Chart.js Mounting (Issue #78):** Render responsive Doughnut charts on a clean canvas wrapper, managing the layout and instance destruction outside Alpine's Proxy boundaries to preserve hover tooltips and prevent leaks.
+  - [x] **Position-Based Calculation:** Refactor the calculation pipeline to compute aggregates and cash allocations directly from the `Position` table.
+  - [x] **Global Portfolio Aggregations:** Implement the static `/api/portfolios/all/allocations` router endpoint for unified, multi-portfolio analytics.
 
-### Phase 7: Historical Performance & Advanced Analytics (Upcoming 🚀)
-* **Sprint 10: Historical Tracking & Benchmarking**
-  - [ ] Implement database models (`PortfolioHistory`) to periodically store daily portfolio valuation snapshots.
-  - [ ] Render a historical performance line chart on the dashboard.
-  - [ ] Implement benchmarking to compare portfolio returns against major market indices (e.g., S&P 500, MSCI World).
-* **Sprint 11: ETF Look-Through & Multi-Language**
-  - [ ] **ETF Look-Through (Issue #33):** Support breaking down ETFs into their raw individual constituent holdings for deeper risk analysis.
-  - [ ] **Localization (Issue #30):** Implement multi-language localization (EN, CS, FR, DE) for both the UI dashboard and the AI evaluation output.
+### Phase 7: Real-Time AI Diagnostics & Stateful Chat (Current Focus 🎯)
+* **Sprint 11: AI Portfolio Copilot & Stateful Analysis**
+  - [ ] **Stateful AI Analysis Cache & Cooldown (Issue #63):** Implement an on-demand portfolio analysis endpoint, caching Gemini's structured Markdown evaluation in SQLite with a 7-day cooldown to prevent API cost spam.
+  - [ ] **Stateful AI Chat (Issues #29 & #61):** Build a responsive backend service for follow-up chat interactions with Gemini, persisting conversation histories tied to individual portfolios.
+  - [ ] **Client-Side Copilot Integration:** Populate the dashboard's "AI Portfolio Copilot" widget, supporting asynchronous streaming, loading indicators, and markdown formatting.
+  - [ ] **Route Profiling Middleware (Issue #68):** Design and implement a reusable decorator or middleware to profile API endpoint latencies and log performance bottlenecks.

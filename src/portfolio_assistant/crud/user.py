@@ -17,3 +17,12 @@ def create_user(session: Session, user: User) -> User:
     session.commit()
     session.refresh(user)
     return user
+
+
+def update_analysis_prompt(session: Session, user: User, prompt: str | None) -> User:
+    """Persist and refresh a user's custom AI system prompt."""
+    user.analysis_prompt = prompt
+    session.add(user)
+    session.commit()
+    session.refresh(user)
+    return user
