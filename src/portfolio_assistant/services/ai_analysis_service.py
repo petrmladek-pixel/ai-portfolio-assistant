@@ -2,6 +2,7 @@
 
 import hashlib
 import json
+from collections.abc import Sequence
 from datetime import UTC, datetime, timedelta
 from decimal import Decimal
 
@@ -15,7 +16,7 @@ from portfolio_assistant.models.ai import (
     AIAnalysisResponse,
     PortfolioAIAnalysis,
 )
-from portfolio_assistant.models.db_models import Position
+from portfolio_assistant.models.db_models import Portfolio, Position
 from portfolio_assistant.models.persona import PERSONA_SYSTEM_PROMPTS, InvestmentPersona
 from portfolio_assistant.services.ai.gemini import GeminiAIService
 
@@ -72,6 +73,32 @@ class AIAnalysisService:
             created_at=self._as_utc(saved.created_at),
         )
 
+    async def generate_all_portfolios_analysis(
+        self,
+        session: Session,
+        user_id: int,
+        request: AIAnalysisRequest,
+    ) -> AIAnalysisResponse:
+        """Generate one report from every portfolio owned by the user."""
+        persona = self._parse_persona(request.persona_id)
+        positions = session.exec(
+            select(Position).join(Portfolio).where(Portfolio.user_id == user_id)
+        ).all()
+        _, snapshot = self._get_positions_snapshot(positions)
+        prompt = self._build_prompt(
+            PERSONA_SYSTEM_PROMPTS[persona], snapshot, request.user_context
+        )
+        try:
+            text = await self._gemini_service.generate_report(prompt)
+        except RuntimeError as error:
+            raise AIAnalysisError(str(error)) from error
+        return AIAnalysisResponse(
+            analysis_text=text,
+            persona_id=persona.value,
+            cached=False,
+            created_at=get_now_utc(),
+        )
+
     @staticmethod
     def _parse_persona(persona_id: str) -> InvestmentPersona:
         """Validate and normalize a requested persona identifier."""
@@ -91,6 +118,13 @@ class AIAnalysisService:
         positions = session.exec(
             select(Position).where(Position.portfolio_id == portfolio_id)
         ).all()
+        return AIAnalysisService._get_positions_snapshot(positions)
+
+    @staticmethod
+    def _get_positions_snapshot(
+        positions: Sequence[Position],
+    ) -> tuple[str, list[dict[str, str]]]:
+        """Serialize positions and return a deterministic cache hash."""
         active_positions = [position for position in positions if position.quantity > 0]
         total_value = sum(
             (position.quantity * position.unit_cost for position in active_positions),

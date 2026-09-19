@@ -164,6 +164,35 @@ async def get_or_generate_ai_analysis(
         raise _persistence_error() from None
 
 
+@router.post(
+    "/portfolios/ai-analysis/all",
+    response_model=AIAnalysisResponse,
+)
+async def generate_all_portfolios_ai_analysis(
+    payload: AIAnalysisRequest,
+    current_user: Annotated[User, Depends(get_current_user)],
+    session: Annotated[Session, Depends(get_db_session)],
+    analysis_service: Annotated[
+        PersonaAIAnalysisService,
+        Depends(get_persona_analysis_service),
+    ],
+) -> AIAnalysisResponse:
+    """Generate an uncached report from every portfolio owned by the user."""
+    if current_user.id is None:
+        raise _portfolio_not_found()
+    try:
+        return await analysis_service.generate_all_portfolios_analysis(
+            session,
+            current_user.id,
+            payload,
+        )
+    except AIAnalysisError as error:
+        raise HTTPException(
+            status_code=status.HTTP_502_BAD_GATEWAY,
+            detail=str(error),
+        ) from None
+
+
 @router.get(
     "/portfolios/{portfolio_id}/chat/history",
     response_model=list[ChatMessageResponse],

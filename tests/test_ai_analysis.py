@@ -8,13 +8,22 @@ import pytest
 
 from portfolio_assistant.models.ai import AIAnalysisRequest, PortfolioAIAnalysis
 from portfolio_assistant.models.db_models import Portfolio, Position
+from portfolio_assistant.models.user import User
 from portfolio_assistant.services.ai_analysis_service import AIAnalysisService
 
 
 @pytest.fixture
 def portfolio_with_position(db_session):
     """Create a portfolio with one active position for cache tests."""
-    portfolio = Portfolio(name="Test portfolio", broker="Test broker")
+    user = User(email="analysis@example.com", hashed_password="hash")
+    db_session.add(user)
+    db_session.commit()
+    db_session.refresh(user)
+    portfolio = Portfolio(
+        name="Test portfolio",
+        broker="Test broker",
+        user_id=user.id,
+    )
     db_session.add(portfolio)
     db_session.commit()
     db_session.refresh(portfolio)
@@ -30,6 +39,49 @@ def portfolio_with_position(db_session):
     db_session.add(position)
     db_session.commit()
     return portfolio, position
+
+
+@pytest.mark.asyncio
+async def test_all_portfolios_analysis_uses_positions_from_each_owned_portfolio(
+    db_session,
+    portfolio_with_position,
+) -> None:
+    """Build an aggregate report from all portfolios belonging to one user."""
+    portfolio, _ = portfolio_with_position
+    second = Portfolio(
+        name="Second portfolio",
+        broker="Test broker",
+        user_id=portfolio.user_id,
+    )
+    db_session.add(second)
+    db_session.commit()
+    db_session.refresh(second)
+    db_session.add(
+        Position(
+            asset_name="Microsoft Corp.",
+            ticker="MSFT",
+            currency="USD",
+            quantity=Decimal("1"),
+            unit_cost=Decimal("200"),
+            acquisition_date=date(2025, 1, 1),
+            portfolio_id=second.id,
+        )
+    )
+    db_session.commit()
+    gemini = AsyncMock()
+    gemini.generate_report.return_value = "# Combined report"
+    service = AIAnalysisService(gemini_service=gemini)
+
+    response = await service.generate_all_portfolios_analysis(
+        db_session,
+        portfolio.user_id,
+        AIAnalysisRequest(),
+    )
+
+    assert response.cached is False
+    prompt = gemini.generate_report.await_args.args[0]
+    assert "AAPL" in prompt
+    assert "MSFT" in prompt
 
 
 @pytest.mark.asyncio

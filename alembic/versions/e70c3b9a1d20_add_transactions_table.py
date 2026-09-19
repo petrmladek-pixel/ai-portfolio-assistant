@@ -22,28 +22,28 @@ depends_on: str | Sequence[str] | None = None
 def upgrade() -> None:
     """Upgrade schema."""
     op.create_table(
-        "transaction",
+        "transactions",
         sa.Column("id", sa.Integer(), nullable=False),
         sa.Column("ticker", sa.String(), nullable=False),
         sa.Column("quantity", sa.Numeric(precision=18, scale=8), nullable=False),
         sa.Column("transaction_type", sa.String(), nullable=False),
         sa.Column("portfolio_id", sa.Integer(), nullable=False),
-        sa.ForeignKeyConstraint(["portfolio_id"], ["portfolio.id"]),
+        sa.ForeignKeyConstraint(["portfolio_id"], ["portfolios.id"]),
         sa.PrimaryKeyConstraint("id"),
     )
     op.create_index(
-        op.f("ix_transaction_portfolio_id"),
-        "transaction",
+        op.f("ix_transactions_portfolio_id"),
+        "transactions",
         ["portfolio_id"],
         unique=False,
     )
     op.create_index(
-        op.f("ix_transaction_ticker"), "transaction", ["ticker"], unique=False
+        op.f("ix_transactions_ticker"), "transactions", ["ticker"], unique=False
     )
 
 
 def downgrade() -> None:
     """Downgrade schema."""
-    op.drop_index(op.f("ix_transaction_ticker"), table_name="transaction")
-    op.drop_index(op.f("ix_transaction_portfolio_id"), table_name="transaction")
-    op.drop_table("transaction")
+    op.drop_index(op.f("ix_transactions_ticker"), table_name="transactions")
+    op.drop_index(op.f("ix_transactions_portfolio_id"), table_name="transactions")
+    op.drop_table("transactions")

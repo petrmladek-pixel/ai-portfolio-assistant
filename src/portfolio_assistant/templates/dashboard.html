@@ -67,6 +67,13 @@
             {% include 'components/chat_widget.html' %}
           </div>
           {% include 'components/positions_table.html' %}
+          <div
+            x-data='portfolioStrategicAnalysis({{ selected_portfolio_id | tojson }})'
+            class="mt-6 space-y-6"
+          >
+            {% include 'components/ai_analysis_controls.html' %}
+            {% include 'components/ai_analysis_report.html' %}
+          </div>
         {% else %}
           <!-- ================= EMPTY STATE (For fresh logged-in users with 0 positions) ================= -->
           <div class="rounded-sm border border-border bg-card p-10 text-center flex flex-col items-center justify-center max-w-2xl mx-auto space-y-4 my-10">
@@ -85,6 +92,7 @@
 </div>
 
 <script src="{{ url_for('static', path='js/portfolio-dashboard.js') }}"></script>
+<script src="{{ url_for('static', path='js/ai-analysis.js') }}"></script>
 <script>
   const hasData = JSON.parse('{{ "true" if has_data else "false" }}' || 'false');
   const SIZE = 168, STROKE = 22, RADIUS = (SIZE - STROKE) / 2, CIRCUMFERENCE = 2 * Math.PI * RADIUS, GAP = 1.2;

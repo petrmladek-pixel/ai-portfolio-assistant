@@ -2,6 +2,7 @@
 
 import warnings
 from decimal import Decimal
+from pathlib import Path
 from unittest.mock import AsyncMock, MagicMock
 
 import pytest
@@ -31,10 +32,76 @@ from portfolio_assistant.routers.web import (
     get_portfolio_parser,
     get_valuation_service,
 )
+from portfolio_assistant.routers.web_dashboard import _select_portfolios
 
 # Suppress the httpx deprecation warning
 warnings.filterwarnings("ignore", message=".*httpx.*", category=DeprecationWarning)
 client = TestClient(app)
+
+
+def test_dashboard_selects_the_default_portfolio_instead_of_aggregating(
+    db_session: Session,
+) -> None:
+    """Use the displayed default portfolio rather than the aggregate view."""
+    user = User(email="selection@example.com", hashed_password="hash")
+    db_session.add(user)
+    db_session.commit()
+    db_session.refresh(user)
+    assert user.id is not None
+    first = Portfolio(name="First", broker="Fio", user_id=user.id)
+    second = Portfolio(name="Second", broker="DEGIRO", user_id=user.id)
+    db_session.add(first)
+    db_session.add(second)
+    db_session.commit()
+    db_session.refresh(first)
+    db_session.refresh(second)
+
+    selected = _select_portfolios(db_session, user.id, first.id, [first, second])
+
+    assert selected == [first]
+
+
+def test_strategic_analysis_controls_and_payload_contract() -> None:
+    """Expose the strategic-analysis controls and their API payload contract."""
+    dashboard = (
+        Path(__file__).parents[1]
+        / "src"
+        / "portfolio_assistant"
+        / "templates"
+        / "dashboard.html"
+    ).read_text(encoding="utf-8")
+    controls = (
+        Path(__file__).parents[1]
+        / "src"
+        / "portfolio_assistant"
+        / "templates"
+        / "components"
+        / "ai_analysis_controls.html"
+    ).read_text(encoding="utf-8")
+    script = (
+        Path(__file__).parents[1]
+        / "src"
+        / "portfolio_assistant"
+        / "static"
+        / "js"
+        / "ai-analysis.js"
+    ).read_text(encoding="utf-8")
+
+    assert "components/ai_analysis_controls.html" in dashboard
+    assert "components/ai_analysis_report.html" in dashboard
+    assert "x-data='portfolioStrategicAnalysis(" in dashboard
+    assert 'x-model="selectedPersona"' in controls
+    assert 'x-model="userContext"' in controls
+    assert 'x-model="forceRefresh"' in controls
+    assert 'value="WARREN_BUFFETT"' in controls
+    assert 'value="GROWTH"' in controls
+    assert 'value="CUSTOM"' in controls
+    assert "persona_id: this.selectedPersona" in script
+    assert "user_context: this.userContext.trim() || null" in script
+    assert "force_refresh: this.forceRefresh" in script
+    assert '"/api/portfolios/ai-analysis/all"' in script
+    assert "DOMPurify.sanitize(marked.parse(markdown))" in script
+    assert 'typeof DOMPurify === "undefined"' in script
 
 
 def _create_mock_portfolio_data_with_weights() -> tuple[

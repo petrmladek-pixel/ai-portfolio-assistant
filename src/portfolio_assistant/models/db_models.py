@@ -14,7 +14,7 @@ class PortfolioBase(SQLModel):
     name: str = Field(index=True)
     broker: str = Field(index=True)
     description: str | None = None
-    user_id: int | None = Field(default=None, foreign_key="user.id")
+    user_id: int = Field(foreign_key="users.id")
 
 
 class Portfolio(PortfolioBase, table=True):
@@ -32,16 +32,24 @@ class PositionBase(SQLModel):
     isin: str | None = None
     currency: str
     quantity: Decimal = Field(
-        sa_column=Column(Numeric(precision=18, scale=8, asdecimal=True))
+        sa_column=Column(
+            Numeric(precision=18, scale=8, asdecimal=True),
+            nullable=False,
+        )
     )
     unit_cost: Decimal = Field(
-        sa_column=Column(Numeric(precision=18, scale=8, asdecimal=True))
+        sa_column=Column(
+            Numeric(precision=18, scale=8, asdecimal=True),
+            nullable=False,
+        )
     )
     acquisition_date: date
-    portfolio_id: int | None = Field(default=None, foreign_key="portfolios.id")
+    portfolio_id: int = Field(foreign_key="portfolios.id")
 
 
 class Position(PositionBase, table=True):
+    __tablename__ = "positions"
+
     id: int | None = Field(default=None, primary_key=True)
 
     portfolio: Portfolio | None = Relationship(back_populates="positions")
@@ -49,6 +57,8 @@ class Position(PositionBase, table=True):
 
 class Transaction(SQLModel, table=True):
     """Represents a portfolio trade used to calculate current holdings."""
+
+    __tablename__ = "transactions"
 
     id: int | None = Field(default=None, primary_key=True)
     ticker: str = Field(index=True)
