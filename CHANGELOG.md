@@ -15,6 +15,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Centralized configurations in `pyproject.toml`.
 - GitHub Actions CI pipeline with automated linting, typing, and testing.
 
+## [0.11.0](https://github.com/petrmladek-pixel/ai-portfolio-assistant/compare/v0.10.0...v0.11.0) (2026-09-19)
+
+
+### Features
+
+* **ai_chat:** add CRUD operations for persistent AI chat messages and integrate with services ([b94ee9e](https://github.com/petrmladek-pixel/ai-portfolio-assistant/commit/b94ee9e0d892a126fb6f8456ce02279ef578a690))
+* **ai:** add AI analysis service and related exceptions for portfolio analysis ([081ace8](https://github.com/petrmladek-pixel/ai-portfolio-assistant/commit/081ace83539223420f7fb67128730037cec118e5))
+* **ai:** add AI chat and analysis endpoints with user prompt management ([7e5703a](https://github.com/petrmladek-pixel/ai-portfolio-assistant/commit/7e5703acd25703fd8135fc7bec584fc1b049e0b4))
+* **ai:** integrate default analysis prompt for portfolio evaluations ([983b620](https://github.com/petrmladek-pixel/ai-portfolio-assistant/commit/983b6206201f1ae3a2a8390c8f37b21ad5e3b43d))
+* **ai:** update timestamp handling to use UTC-aware defaults and add tests for AI models ([cfacc32](https://github.com/petrmladek-pixel/ai-portfolio-assistant/commit/cfacc3285abfb941fa1be2bbd55c09417d8e0246))
+* **alembic:** add migration scripts for repairing portfolios table and adding AI cache tables ([1df5429](https://github.com/petrmladek-pixel/ai-portfolio-assistant/commit/1df5429eba5283ea0e493d6b31b70c03b53b8811))
+* **database:** rename portfolio table to portfolios and update related references ([9f5e319](https://github.com/petrmladek-pixel/ai-portfolio-assistant/commit/9f5e31938e8ab789ada28aabac230a1beedad9ba))
+
 ## [0.10.0](https://github.com/petrmladek-pixel/ai-portfolio-assistant/compare/v0.9.0...v0.10.0) (2026-09-05)
 
 
