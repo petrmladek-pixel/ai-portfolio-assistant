@@ -2,6 +2,7 @@
 
 from pathlib import Path
 
+import pytest
 from alembic.config import Config
 from sqlalchemy import create_engine, inspect, text
 
@@ -66,6 +67,28 @@ def test_upgrade_creates_missing_portfolios_table(tmp_path: Path, monkeypatch) -
     command.upgrade(Config("alembic.ini"), "head")
 
     assert "portfolios" in inspect(create_engine(database_url)).get_table_names()
+
+
+def test_downgrade_fails_without_changing_migrated_data(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    """Reject unsafe schema rollback after preserving legacy portfolio records."""
+    database_url = f"sqlite:///{tmp_path / 'downgrade.db'}"
+    _create_database_with_portfolio_table(database_url, "portfolio")
+    monkeypatch.setattr(database, "SQLMODEL_DATABASE_URL", database_url)
+    config = Config("alembic.ini")
+    command.upgrade(config, "head")
+
+    with pytest.raises(NotImplementedError, match="cannot be safely downgraded"):
+        command.downgrade(config, "c3d4e5f6a7b8")
+
+    with create_engine(database_url).connect() as connection:
+        portfolio_count = connection.execute(
+            text("SELECT COUNT(*) FROM portfolios")
+        ).scalar_one()
+
+    assert portfolio_count == 1
 
 
 def _create_database_with_portfolio_table(

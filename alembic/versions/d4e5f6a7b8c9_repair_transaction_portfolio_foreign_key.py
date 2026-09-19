@@ -55,7 +55,10 @@ def upgrade() -> None:
 
 
 def downgrade() -> None:
-    """Keep repaired transaction data intact during a downgrade."""
+    """Prevent an unsafe downgrade that could corrupt migrated portfolio data."""
+    raise NotImplementedError(
+        "This data-preserving migration cannot be safely downgraded."
+    )
 
 
 def _references_portfolios(inspector: sa.Inspector) -> bool:
