@@ -15,6 +15,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Centralized configurations in `pyproject.toml`.
 - GitHub Actions CI pipeline with automated linting, typing, and testing.
 
+## [0.12.0](https://github.com/petrmladek-pixel/ai-portfolio-assistant/compare/v0.11.0...v0.12.0) (2026-09-19)
+
+
+### Features
+
+* **ai:** add persona-aware AI analysis service and caching mechanism ([82bde60](https://github.com/petrmladek-pixel/ai-portfolio-assistant/commit/82bde609ce8fe4d7abba900de8c6efe8e513c3ba))
+* **dashboard:** add strategic analysis controls and report components ([d5d1e3c](https://github.com/petrmladek-pixel/ai-portfolio-assistant/commit/d5d1e3c363047ec0325bdcba972414eb91aeacb8))
+
 ## [0.11.0](https://github.com/petrmladek-pixel/ai-portfolio-assistant/compare/v0.10.0...v0.11.0) (2026-09-19)
 
 
