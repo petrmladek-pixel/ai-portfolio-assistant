@@ -6,6 +6,9 @@ from pydantic import BaseModel, ConfigDict, field_validator
 from pydantic import Field as PydanticField
 from sqlmodel import Field, SQLModel
 
+from portfolio_assistant.core.types import UTCDateTime
+from portfolio_assistant.core.utils import get_now_utc
+
 
 class PortfolioAnalysisResponse(BaseModel):
     """Public representation of a cached portfolio analysis."""
@@ -69,7 +72,11 @@ class PortfolioAnalysis(PortfolioAnalysisBase, table=True):
     __tablename__ = "portfolio_analyses"
 
     id: int | None = Field(default=None, primary_key=True)
-    created_at: datetime = Field(default_factory=datetime.utcnow)
+    created_at: datetime = Field(
+        default_factory=get_now_utc,
+        nullable=False,
+        sa_type=UTCDateTime,
+    )
 
 
 class ChatMessageBase(SQLModel):
@@ -94,4 +101,8 @@ class ChatMessage(ChatMessageBase, table=True):
     __tablename__ = "chat_messages"
 
     id: int | None = Field(default=None, primary_key=True)
-    created_at: datetime = Field(default_factory=datetime.utcnow)
+    created_at: datetime = Field(
+        default_factory=get_now_utc,
+        nullable=False,
+        sa_type=UTCDateTime,
+    )

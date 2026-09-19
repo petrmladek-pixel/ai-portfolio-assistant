@@ -2,7 +2,7 @@
 
 import json
 import re
-from datetime import datetime, timedelta
+from datetime import UTC, timedelta
 from pathlib import Path
 from typing import Any
 
@@ -16,6 +16,7 @@ from portfolio_assistant.core.exceptions import (
     PersistenceError,
     PortfolioNotFoundError,
 )
+from portfolio_assistant.core.utils import get_now_utc
 from portfolio_assistant.crud import ai as ai_crud
 from portfolio_assistant.crud import portfolio as portfolio_crud
 from portfolio_assistant.models.ai import PortfolioAnalysis
@@ -110,9 +111,9 @@ class AIAnalysisService:
     ) -> timedelta | None:
         """Return remaining cooldown duration when the analysis remains current."""
         created_at = analysis.created_at
-        if created_at.tzinfo is not None:
-            created_at = created_at.replace(tzinfo=None)
-        remaining_time = ANALYSIS_COOLDOWN - (datetime.utcnow() - created_at)
+        if created_at.tzinfo is None:
+            created_at = created_at.replace(tzinfo=UTC)
+        remaining_time = ANALYSIS_COOLDOWN - (get_now_utc() - created_at)
         return remaining_time if remaining_time > timedelta() else None
 
     async def _generate_analysis(self, prompt: str) -> str:
