@@ -164,6 +164,36 @@ async def get_or_generate_ai_analysis(
         raise _persistence_error() from None
 
 
+@router.get(
+    "/portfolios/{portfolio_id}/ai-analysis",
+    response_model=AIAnalysisResponse | None,
+)
+def get_latest_persona_ai_analysis(
+    portfolio_id: int,
+    current_user: Annotated[User, Depends(get_current_user)],
+    session: Annotated[Session, Depends(get_db_session)],
+    analysis_service: Annotated[
+        PersonaAIAnalysisService,
+        Depends(get_persona_analysis_service),
+    ],
+) -> AIAnalysisResponse | None:
+    """Return the newest valid persona-aware cache entry for a portfolio."""
+    if current_user.id is None:
+        raise _portfolio_not_found()
+    portfolio = portfolio_crud.get_portfolio_for_user(
+        session,
+        portfolio_id,
+        current_user.id,
+    )
+    if portfolio is None:
+        raise _portfolio_not_found()
+    try:
+        return analysis_service.get_latest_cached_analysis(session, portfolio_id)
+    except SQLAlchemyError:
+        logger.exception("Database error while retrieving persona-aware analysis")
+        raise _persistence_error() from None
+
+
 @router.post(
     "/portfolios/ai-analysis/all",
     response_model=AIAnalysisResponse,

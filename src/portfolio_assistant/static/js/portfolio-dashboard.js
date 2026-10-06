@@ -32,6 +32,12 @@ function portfolioDashboard(portfolioId) {
           { headers: { Accept: "application/json" } },
         );
         if (!response.ok) {
+          if (response.status === 401 || response.status === 403) {
+            this.errorMessage = (
+              "Pro zobrazení alokace portfolia se prosím přihlaste."
+            );
+            return;
+          }
           throw new Error(
             `Allocation request failed with status ${response.status}.`,
           );

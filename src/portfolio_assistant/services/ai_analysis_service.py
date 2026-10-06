@@ -73,6 +73,29 @@ class AIAnalysisService:
             created_at=self._as_utc(saved.created_at),
         )
 
+    def get_latest_cached_analysis(
+        self,
+        session: Session,
+        portfolio_id: int,
+    ) -> AIAnalysisResponse | None:
+        """Return the newest valid cached report without generating a new one."""
+        portfolio_hash, _ = self._get_portfolio_snapshot(session, portfolio_id)
+        cached = ai_analysis_crud.get_latest_ai_analysis(session, portfolio_id)
+        if cached is None:
+            return None
+        request = AIAnalysisRequest(
+            persona_id=cached.persona_id,
+            user_context=cached.user_context,
+        )
+        if not self._is_cache_valid(cached, request, portfolio_hash):
+            return None
+        return AIAnalysisResponse(
+            analysis_text=cached.analysis_text,
+            persona_id=cached.persona_id,
+            cached=True,
+            created_at=self._as_utc(cached.created_at),
+        )
+
     async def generate_all_portfolios_analysis(
         self,
         session: Session,

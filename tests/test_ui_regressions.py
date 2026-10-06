@@ -90,18 +90,39 @@ def test_strategic_analysis_controls_and_payload_contract() -> None:
     assert "components/ai_analysis_controls.html" in dashboard
     assert "components/ai_analysis_report.html" in dashboard
     assert "x-data='portfolioStrategicAnalysis(" in dashboard
+    assert "persona_prompts | default({}) | tojson" in dashboard
     assert 'x-model="selectedPersona"' in controls
     assert 'x-model="userContext"' in controls
     assert 'x-model="forceRefresh"' in controls
     assert 'value="WARREN_BUFFETT"' in controls
     assert 'value="GROWTH"' in controls
     assert 'value="CUSTOM"' in controls
+    assert 'x-text="selectedPersonaPrompt"' in controls
     assert "persona_id: this.selectedPersona" in script
     assert "user_context: this.userContext.trim() || null" in script
     assert "force_refresh: this.forceRefresh" in script
     assert '"/api/portfolios/ai-analysis/all"' in script
+    assert "get selectedPersonaPrompt()" in script
     assert "DOMPurify.sanitize(marked.parse(markdown))" in script
     assert 'typeof DOMPurify === "undefined"' in script
+
+
+def test_dashboard_allocation_error_explains_the_login_requirement() -> None:
+    """Show a login prompt instead of a generic error for unauthorized users."""
+    script = (
+        Path(__file__).parents[1]
+        / "src"
+        / "portfolio_assistant"
+        / "static"
+        / "js"
+        / "portfolio-dashboard.js"
+    ).read_text(encoding="utf-8")
+
+    assert "response.status === 401 || response.status === 403" in script
+    login_message = (
+        "Pro zobrazen\u00ed alokace portfolia se pros\u00edm p\u0159ihlaste."
+    )
+    assert login_message in script
 
 
 def _create_mock_portfolio_data_with_weights() -> tuple[

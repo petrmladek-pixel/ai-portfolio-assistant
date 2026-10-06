@@ -12,7 +12,7 @@
     <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/dompurify/dist/purify.min.js"></script>
     <!-- Tailwind CSS -->
-    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.tailwindcss.com?plugins=typography"></script>
     <!-- Chart rendering -->
     <script
       defer
@@ -109,6 +109,8 @@
       .analysis-markdown th, .analysis-markdown td { border: 1px solid rgb(var(--border)); padding: 0.75rem; text-align: left; vertical-align: top; }
       .analysis-markdown th { background: rgb(var(--secondary)); font-size: 0.75rem; letter-spacing: 0.05em; text-transform: uppercase; }
       .analysis-markdown code { background: rgb(var(--secondary)); font-family: "JetBrains Mono", monospace; font-size: 0.875em; padding: 0.125rem 0.25rem; }
+      .analysis-markdown table { border: 1px solid rgb(var(--border)); }
+      .analysis-markdown tr:nth-child(even) { background: rgb(var(--secondary)); }
     </style>
   </head>
   <body class="min-h-screen bg-background text-foreground">

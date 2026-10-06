@@ -1,6 +1,7 @@
-function portfolioStrategicAnalysis(portfolioId) {
+function portfolioStrategicAnalysis(portfolioId, personaPrompts) {
   return {
     currentPortfolioId: portfolioId,
+    personaPrompts: personaPrompts || {},
     selectedPersona: "WARREN_BUFFETT",
     userContext: "",
     forceRefresh: false,
@@ -12,10 +13,52 @@ function portfolioStrategicAnalysis(portfolioId) {
     htmlContent: "",
     copied: false,
 
-    init() {
+    get selectedPersonaPrompt() {
+      return this.personaPrompts[this.selectedPersona] || "";
+    },
+
+    async init() {
+      this.showEmptyState();
+      await this.loadCachedAnalysis();
+    },
+
+    showEmptyState() {
+      this.analysisResult = "";
+      this.analysisCached = false;
+      this.createdAt = null;
       this.htmlContent = this.renderMarkdown(
         "## Připraveno k analýze\nVyberte personu a spusťte hloubkový report.",
       );
+    },
+
+    async loadCachedAnalysis() {
+      if (!this.currentPortfolioId || this.currentPortfolioId === "all") {
+        return;
+      }
+
+      this.errorMessage = "";
+      try {
+        const response = await fetch(
+          `/api/portfolios/${this.currentPortfolioId}/ai-analysis`,
+          { headers: { Accept: "application/json" } },
+        );
+        const payload = await response.json().catch(() => null);
+        if (!response.ok) {
+          throw new Error(payload?.detail || "Analýzu se nepodařilo načíst.");
+        }
+        if (!payload) {
+          this.showEmptyState();
+          return;
+        }
+
+        this.analysisResult = payload.analysis_text;
+        this.analysisCached = payload.cached;
+        this.createdAt = payload.created_at;
+        this.selectedPersona = payload.persona_id;
+        this.htmlContent = this.renderMarkdown(this.analysisResult);
+      } catch (error) {
+        this.errorMessage = error.message || "Analýzu se nepodařilo načíst.";
+      }
     },
 
     renderMarkdown(markdown) {

@@ -18,7 +18,10 @@ from portfolio_assistant.crud.portfolio import get_portfolios_for_user
 from portfolio_assistant.dependencies import get_current_user, get_persisted_user_id
 from portfolio_assistant.models.portfolio import Currency
 from portfolio_assistant.models.user import User
-from portfolio_assistant.routers.web_dashboard import _valuation_context
+from portfolio_assistant.routers.web_dashboard import (
+    PERSONA_PROMPT_CONTEXT,
+    _valuation_context,
+)
 from portfolio_assistant.services.ai.gemini import GeminiAIService
 from portfolio_assistant.services.parser.degiro import DegiroPortfolioParser
 from portfolio_assistant.services.parser.fio_broker import FioBrokerPortfolioParser
@@ -124,6 +127,7 @@ def _success_context(
         "ai_analysis_markdown": "",
         "portfolios": portfolios,
         "selected_portfolio_id": portfolio_id,
+        "persona_prompts": PERSONA_PROMPT_CONTEXT,
         "error": None,
     }
     context.update(_valuation_context(valued))
@@ -144,4 +148,5 @@ def _error_context(
         "ai_analysis_markdown": "",
         "portfolios": portfolios,
         "selected_portfolio_id": portfolio_id,
+        "persona_prompts": PERSONA_PROMPT_CONTEXT,
     }

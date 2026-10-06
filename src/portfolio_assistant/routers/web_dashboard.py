@@ -22,6 +22,7 @@ from portfolio_assistant.dependencies import (
     get_persisted_user_id,
 )
 from portfolio_assistant.models.db_models import Portfolio
+from portfolio_assistant.models.persona import PERSONA_SYSTEM_PROMPTS
 from portfolio_assistant.models.portfolio import (
     Currency,
     ImportedPortfolio,
@@ -44,6 +45,9 @@ from .web import (
 
 logger = logging.getLogger(__name__)
 router = APIRouter()
+PERSONA_PROMPT_CONTEXT = {
+    persona.value: prompt for persona, prompt in PERSONA_SYSTEM_PROMPTS.items()
+}
 
 
 # Define safe fallback context to prevent Jinja2 rendering crashes on empty data
@@ -168,6 +172,7 @@ def _base_context(user: User | None, portfolio_id: str | int | None) -> dict[str
         "ai_analysis_markdown": "Nahrajte CSV data pro analyzu.",
         "portfolios": [],
         "selected_portfolio_id": portfolio_id,
+        "persona_prompts": PERSONA_PROMPT_CONTEXT,
     }
 
 
@@ -249,6 +254,7 @@ def _get_guest_context() -> dict[str, Any]:
         "ai_analysis_markdown": "Demo portfolio Berkshire Hathaway analysis.",
         "portfolios": [],
         "selected_portfolio_id": None,
+        "persona_prompts": PERSONA_PROMPT_CONTEXT,
         "error": None,
     }
 

@@ -30,7 +30,7 @@
 
   <!-- ================= MAIN CONTENT ================= -->
   <main class="flex-1 px-4 py-6 sm:px-8 sm:py-10 lg:px-12">
-    <div class="mx-auto max-w-5xl">
+    <div class="mx-auto max-w-7xl">
       {% if error %}<div class="mb-4 rounded-sm border border-red-300 bg-red-50 p-4 text-sm text-red-800">{{ error }}</div>{% endif %}
       <section>
         <div class="flex flex-wrap items-baseline justify-between gap-2">
@@ -68,7 +68,10 @@
           </div>
           {% include 'components/positions_table.html' %}
           <div
-            x-data='portfolioStrategicAnalysis({{ selected_portfolio_id | tojson }})'
+            x-data='portfolioStrategicAnalysis(
+              {{ selected_portfolio_id | tojson }},
+              {{ persona_prompts | default({}) | tojson }}
+            )'
             class="mt-6 space-y-6"
           >
             {% include 'components/ai_analysis_controls.html' %}
@@ -163,10 +166,15 @@
 
   // ================= MOBILE DRAWER TRIGGER =================
   const drawer = document.getElementById('drawer');
-  document.getElementById('open-menu').addEventListener('click', () => drawer.classList.remove('hidden'));
+  const openMenu = document.getElementById('open-menu');
+  const closeMenu = document.getElementById('close-menu');
+  const drawerBackdrop = document.getElementById('drawer-backdrop');
   const closeDrawer = () => drawer.classList.add('hidden');
-  document.getElementById('close-menu').addEventListener('click', closeDrawer);
-  document.getElementById('drawer-backdrop').addEventListener('click', closeDrawer);
+  if (drawer && openMenu && closeMenu && drawerBackdrop) {
+    openMenu.addEventListener('click', () => drawer.classList.remove('hidden'));
+    closeMenu.addEventListener('click', closeDrawer);
+    drawerBackdrop.addEventListener('click', closeDrawer);
+  }
 
   // ================= BENCHMARK SVG RENDER =================
   const portfolioSeries = [100, 102, 101, 106, 109, 108, 113, 117, 121, 126];
@@ -232,8 +240,10 @@
   // ================= ACTIVE CHAT CLIENT LOGIC =================
   const chatLog = document.getElementById('chat-log');
   const chatInput = document.getElementById('chat-input');
+  const chatForm = document.getElementById('chat-form');
 
-  document.getElementById('chat-form').addEventListener('submit', (e) => {
+  if (chatForm && chatLog && chatInput) {
+    chatForm.addEventListener('submit', (e) => {
     e.preventDefault();
     const text = chatInput.value.trim();
     if (!text) return;
@@ -252,7 +262,8 @@
     chatLog.appendChild(aiWrap);
 
     chatInput.value = '';
-    chatLog.scrollTop = chatLog.scrollHeight;
-  });
+      chatLog.scrollTop = chatLog.scrollHeight;
+    });
+  }
 </script>
 {% endblock %}

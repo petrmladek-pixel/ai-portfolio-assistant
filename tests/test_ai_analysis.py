@@ -5,10 +5,16 @@ from decimal import Decimal
 from unittest.mock import AsyncMock
 
 import pytest
+from fastapi.testclient import TestClient
+from sqlmodel import select
 
+from portfolio_assistant.core.database import get_db_session
+from portfolio_assistant.dependencies import get_current_user
+from portfolio_assistant.main import app
 from portfolio_assistant.models.ai import AIAnalysisRequest, PortfolioAIAnalysis
 from portfolio_assistant.models.db_models import Portfolio, Position
 from portfolio_assistant.models.user import User
+from portfolio_assistant.routers.ai import get_persona_analysis_service
 from portfolio_assistant.services.ai_analysis_service import AIAnalysisService
 
 
@@ -195,3 +201,47 @@ def test_cache_validity_normalizes_naive_sqlite_datetime() -> None:
         AIAnalysisRequest(),
         "hash",
     )
+
+
+def test_persona_analysis_api_applies_payload_and_returns_cached_report(
+    db_session,
+    portfolio_with_position,
+) -> None:
+    """Persist POST settings and return the valid report through the GET cache API."""
+    portfolio, _ = portfolio_with_position
+    user = db_session.get(User, portfolio.user_id)
+    assert user is not None
+    gemini = AsyncMock()
+    gemini.generate_report.return_value = "# Growth report"
+    service = AIAnalysisService(gemini_service=gemini)
+    app.dependency_overrides[get_current_user] = lambda: user
+    app.dependency_overrides[get_db_session] = lambda: db_session
+    app.dependency_overrides[get_persona_analysis_service] = lambda: service
+
+    try:
+        client = TestClient(app)
+        response = client.post(
+            f"/api/portfolios/{portfolio.id}/ai-analysis",
+            json={
+                "persona_id": "GROWTH",
+                "user_context": "I accept concentrated technology exposure.",
+                "force_refresh": True,
+            },
+        )
+
+        assert response.status_code == 200
+        assert response.json()["persona_id"] == "GROWTH"
+        assert response.json()["cached"] is False
+        saved = db_session.exec(select(PortfolioAIAnalysis)).one()
+        assert saved.persona_id == "GROWTH"
+        assert saved.user_context == "I accept concentrated technology exposure."
+
+        cached_response = client.get(f"/api/portfolios/{portfolio.id}/ai-analysis")
+
+        assert cached_response.status_code == 200
+        assert cached_response.json()["analysis_text"] == "# Growth report"
+        assert cached_response.json()["cached"] is True
+        assert cached_response.json()["persona_id"] == "GROWTH"
+        assert gemini.generate_report.await_count == 1
+    finally:
+        app.dependency_overrides.clear()
