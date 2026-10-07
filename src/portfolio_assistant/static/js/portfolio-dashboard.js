@@ -22,9 +22,11 @@ function portfolioDashboard(portfolioId) {
     },
 
     async fetchDashboardData() {
-      const allocationsUrl = this.portfolioId === "all"
-        ? "/api/portfolios/all/allocations"
-        : `/api/portfolios/${this.portfolioId}/allocations`;
+      const allocationsUrl = this.portfolioId === "demo"
+        ? "/api/portfolios/demo/allocations"
+        : this.portfolioId === "all"
+          ? "/api/portfolios/all/allocations"
+          : `/api/portfolios/${this.portfolioId}/allocations`;
 
       try {
         const response = await fetch(

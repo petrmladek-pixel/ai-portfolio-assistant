@@ -143,6 +143,7 @@ app.mount(
 # Include routes
 app.include_router(auth.router)
 app.include_router(portfolio.router)
+app.include_router(portfolio.demo_router)
 app.include_router(allocations.router)
 app.include_router(ai.router)
 app.include_router(router)

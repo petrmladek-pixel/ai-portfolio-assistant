@@ -1,5 +1,6 @@
 <div class="flex h-full flex-col" x-data="{
     open: false,
+    demoLoading: false,
     selectedPortfolio: '{{ selected_portfolio_id or '' }}'
   }">
   <div class="border-b border-border px-6 py-6">
@@ -90,6 +91,26 @@
         Pro import transakcí vyberte konkrétní cílové portfolio.
       </p>
     </form>
+
+    {% if current_user %}
+    <button type="button" :disabled="demoLoading"
+      @click="demoLoading = true; fetch('/api/portfolios/demo', {
+        method: 'POST', credentials: 'same-origin'
+      }).then(async response => {
+        if (!response.ok) throw new Error('Demo portfolio could not be created.');
+        return response.json();
+      }).then(data => window.location.assign(data.redirect_url)).catch(error => {
+        alert(error.message); demoLoading = false;
+      })"
+      class="mt-4 flex w-full items-center justify-center gap-2 rounded-sm border
+      border-primary bg-primary/10 px-4 py-3 text-sm font-semibold text-foreground
+      transition-colors hover:bg-primary/20 disabled:cursor-wait disabled:opacity-60">
+      <span class="rounded-sm bg-primary px-1.5 py-0.5 font-mono text-[10px]
+        text-primary-foreground">1-Click Demo</span>
+      <span x-show="!demoLoading">Vyzkoušet Demo Portfolio (Warren Buffett)</span>
+      <span x-show="demoLoading" x-cloak>Načítání ukázkového portfolia...</span>
+    </button>
+    {% endif %}
 
     <!-- Create Portfolio Modal (Positioned safely outside the upload form) -->
     <div x-show="open" class="fixed inset-0 z-50 flex items-center justify-center bg-foreground/20 backdrop-blur-[1px]" x-cloak>

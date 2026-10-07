@@ -167,6 +167,14 @@ class PortfolioCreate(BaseModel):
         return cleaned
 
 
+class DemoPortfolioResponse(BaseModel):
+    """Response returned after creating the authenticated user's demo portfolio."""
+
+    status: str
+    portfolio_id: int
+    redirect_url: str
+
+
 class ImportedPortfolio(BaseModel):
     """Represents an imported collection of stock positions from a broker.
 

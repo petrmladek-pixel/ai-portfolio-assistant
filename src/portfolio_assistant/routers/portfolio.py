@@ -13,23 +13,66 @@ from portfolio_assistant.core.exceptions import (
     PortfolioImportError,
     PortfolioNotFoundError,
 )
-from portfolio_assistant.models.portfolio import PortfolioCreate
+from portfolio_assistant.models.allocation import PortfolioAllocationResponse
+from portfolio_assistant.models.portfolio import DemoPortfolioResponse, PortfolioCreate
 
 from ..core.database import get_db_session
 from ..crud import portfolio as portfolio_crud
 from ..dependencies import get_current_user, get_persisted_user_id
 from ..models.db_models import Portfolio
 from ..models.user import User
+from ..services.demo_service import (
+    create_demo_buffett_portfolio,
+    get_demo_portfolio_allocations,
+)
 from ..services.portfolio_service import PortfolioService
 
 logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/api/portfolio", tags=["portfolio"])
+demo_router = APIRouter(prefix="/api/portfolios", tags=["portfolio"])
 
 
 def get_portfolio_service() -> PortfolioService:
     """Provide the portfolio persistence service."""
     return PortfolioService()
+
+
+@demo_router.get("/demo/allocations", response_model=PortfolioAllocationResponse)
+async def get_public_demo_allocations() -> PortfolioAllocationResponse:
+    """Return public allocation data for the dashboard demo without a session."""
+    return get_demo_portfolio_allocations()
+
+
+@demo_router.post(
+    "/demo",
+    response_model=DemoPortfolioResponse,
+    status_code=status.HTTP_201_CREATED,
+)
+async def create_demo_portfolio(
+    current_user: Annotated[User, Depends(get_current_user)],
+    session: Annotated[Session, Depends(get_db_session)],
+) -> DemoPortfolioResponse:
+    """Create an authenticated user's one-click Buffett demo portfolio."""
+    user_id = get_persisted_user_id(current_user)
+    try:
+        portfolio = create_demo_buffett_portfolio(session, user_id)
+    except PersistenceError:
+        logger.exception("Database error while creating the demo portfolio")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Database persistence failed.",
+        ) from None
+    if portfolio.id is None:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Created portfolio has no ID.",
+        )
+    return DemoPortfolioResponse(
+        status="success",
+        portfolio_id=portfolio.id,
+        redirect_url=f"/dashboard?portfolio_id={portfolio.id}",
+    )
 
 
 @router.post("", response_model=Portfolio, status_code=status.HTTP_201_CREATED)

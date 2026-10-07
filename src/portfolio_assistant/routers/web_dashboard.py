@@ -3,6 +3,7 @@
 import json
 import logging
 from collections.abc import Sequence
+from decimal import Decimal
 from time import perf_counter
 from typing import Annotated, Any
 
@@ -30,6 +31,11 @@ from portfolio_assistant.models.portfolio import (
 )
 from portfolio_assistant.models.user import User
 from portfolio_assistant.models.valuation import ValuedPortfolio
+from portfolio_assistant.services.demo_service import (
+    DEMO_PORTFOLIO_NAME,
+    get_demo_asset_names,
+    get_demo_portfolio_allocations,
+)
 from portfolio_assistant.services.portfolio_merger import PortfolioMerger
 from portfolio_assistant.services.portfolio_service import PortfolioService
 from portfolio_assistant.services.valuation.engine import ValuationService
@@ -177,83 +183,40 @@ def _base_context(user: User | None, portfolio_id: str | int | None) -> dict[str
 
 
 def _get_guest_context() -> dict[str, Any]:
+    demo_allocations = get_demo_portfolio_allocations()
+    asset_names = get_demo_asset_names()
+    positions = [
+        {
+            "ticker": allocation.ticker,
+            "name": asset_names[allocation.ticker],
+            "value_formatted": format_currency(allocation.market_value),
+            "weight": allocation.percentage.quantize(Decimal("0.1")),
+        }
+        for allocation in demo_allocations.allocations
+    ]
     return {
         "current_user": None,
         "current_user_email": "Demo Ucet",
         "username": None,
-        "total_value_formatted": "10 000 000,00",
+        "total_value_formatted": format_currency(demo_allocations.total_value),
         "month_change_pct": "3.8",
-        "positions_count": "5+",
-        "sector_count": "5",
-        "region_count": "1",
+        "positions_count": str(len(positions)),
+        "sector_count": str(
+            len({allocation.sector for allocation in demo_allocations.allocations})
+        ),
+        "region_count": str(
+            len({allocation.region for allocation in demo_allocations.allocations})
+        ),
         "daily_change_pct": "+1.1 %",
         "has_data": True,
-        "positions": [
-            {
-                "ticker": "AAPL",
-                "name": "Apple Inc.",
-                "value_formatted": "4 000 000,00",
-                "weight": 40,
-            },
-            {
-                "ticker": "AXP",
-                "name": "American Express",
-                "value_formatted": "1 200 000,00",
-                "weight": 12,
-            },
-            {
-                "ticker": "BAC",
-                "name": "Bank of America",
-                "value_formatted": "1 000 000,00",
-                "weight": 10,
-            },
-            {
-                "ticker": "KO",
-                "name": "The Coca-Cola Co.",
-                "value_formatted": "800 000,00",
-                "weight": 8,
-            },
-            {
-                "ticker": "OXY",
-                "name": "Occidental Petroleum",
-                "value_formatted": "600 000,00",
-                "weight": 6,
-            },
-        ],
-        "top_weights": [
-            {"label": "Apple Inc.", "value": 40, "color": "#0f172a"},
-            {"label": "American Express", "value": 12, "color": "#0d9488"},
-            {"label": "Bank of America", "value": 10, "color": "#3b82f6"},
-            {"label": "The Coca-Cola Co.", "value": 8, "color": "#d97706"},
-            {"label": "Occidental Petroleum", "value": 6, "color": "#6366f1"},
-        ],
-        "chart_data_json": json.dumps(
-            {
-                "labels": [
-                    "Apple Inc.",
-                    "American Express",
-                    "Bank of America",
-                    "The Coca-Cola Co.",
-                    "Occidental Petroleum",
-                ],
-                "weights": [40, 12, 10, 8, 6],
-            }
-        ),
-        "sector_allocation_json": json.dumps(
-            [
-                {"label": "IT", "value": 40},
-                {"label": "Finance", "value": 22},
-                {"label": "Spotrebni", "value": 8},
-                {"label": "Energetika", "value": 6},
-                {"label": "Ostatni", "value": 24},
-            ]
-        ),
-        "geo_allocation_json": json.dumps(
-            [{"label": "USA", "value": 90}, {"label": "Ostatni", "value": 10}]
-        ),
+        "positions": positions,
+        "top_weights": [],
+        "chart_data_json": json.dumps({"labels": [], "weights": []}),
+        "sector_allocation_json": json.dumps([]),
+        "geo_allocation_json": json.dumps([]),
         "ai_analysis_markdown": "Demo portfolio Berkshire Hathaway analysis.",
         "portfolios": [],
-        "selected_portfolio_id": None,
+        "selected_portfolio_id": "demo",
         "persona_prompts": PERSONA_PROMPT_CONTEXT,
         "error": None,
     }
@@ -268,7 +231,11 @@ def _select_portfolios(
     if portfolio_id is None:
         return list(portfolios)
     if str(portfolio_id).lower() == "all":
-        return list(portfolios)
+        return [
+            portfolio
+            for portfolio in portfolios
+            if portfolio.name != DEMO_PORTFOLIO_NAME
+        ]
     try:
         pid = int(portfolio_id)
     except (TypeError, ValueError):

@@ -13,6 +13,7 @@ from portfolio_assistant.dependencies import get_current_user, get_persisted_use
 from portfolio_assistant.models.allocation import PortfolioAllocationResponse
 from portfolio_assistant.models.user import User
 from portfolio_assistant.services.allocation import AllocationService
+from portfolio_assistant.services.demo_service import DEMO_PORTFOLIO_NAME
 
 logger = logging.getLogger(__name__)
 
@@ -24,11 +25,14 @@ async def get_all_portfolio_allocations(
     current_user: Annotated[User, Depends(get_current_user)],
     session: Annotated[Session, Depends(get_db_session)],
 ) -> PortfolioAllocationResponse:
-    """Return the current market-value allocation across all portfolios."""
+    """Return allocations across a user's non-demo portfolios."""
     try:
         user_id = get_persisted_user_id(current_user)
         return await AllocationService().calculate_portfolio_allocations(
-            session, portfolio_id=None, user_id=user_id
+            session,
+            portfolio_id=None,
+            user_id=user_id,
+            excluded_portfolio_name=DEMO_PORTFOLIO_NAME,
         )
     except SQLAlchemyError:
         logger.exception("Database error while calculating all portfolio allocations")
