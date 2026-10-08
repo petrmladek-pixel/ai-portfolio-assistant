@@ -169,6 +169,36 @@ def test_downgrade_fails_without_changing_migrated_data(
     assert portfolio_count == 0
 
 
+def test_upgrade_removes_only_the_known_legacy_demo_clone(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    """Remove the old five-position demo while preserving other portfolios."""
+    database_url = f"sqlite:///{tmp_path / 'legacy-demo.db'}"
+    _create_legacy_demo_clone_database(database_url)
+    monkeypatch.setattr(database, "SQLMODEL_DATABASE_URL", database_url)
+
+    command.upgrade(Config("alembic.ini"), "head")
+
+    engine = create_engine(database_url)
+    with engine.connect() as connection:
+        remaining = (
+            connection.execute(text("SELECT id FROM portfolios ORDER BY id"))
+            .scalars()
+            .all()
+        )
+        positions = (
+            connection.execute(
+                text("SELECT portfolio_id FROM positions ORDER BY portfolio_id")
+            )
+            .scalars()
+            .all()
+        )
+
+    assert remaining == [2]
+    assert positions == [2, 2, 2, 2]
+
+
 def _create_database_with_portfolio_table(
     database_url: str,
     portfolio_table: str,
@@ -212,6 +242,59 @@ def _create_database_with_portfolio_table(
         connection.execute(
             text("INSERT INTO alembic_version (version_num) VALUES (:revision)"),
             {"revision": LEGACY_REVISION},
+        )
+
+
+def _create_legacy_demo_clone_database(database_url: str) -> None:
+    """Create a database at f2 with one exact demo clone and one safe control."""
+    engine = create_engine(database_url)
+    with engine.begin() as connection:
+        connection.execute(
+            text(
+                "CREATE TABLE users (id INTEGER PRIMARY KEY, is_demo BOOLEAN NOT NULL)"
+            )
+        )
+        connection.execute(
+            text(
+                "CREATE TABLE portfolios (id INTEGER PRIMARY KEY, name VARCHAR "
+                "NOT NULL, broker VARCHAR NOT NULL, user_id INTEGER NOT NULL)"
+            )
+        )
+        connection.execute(
+            text(
+                "CREATE TABLE positions (id INTEGER PRIMARY KEY, ticker VARCHAR "
+                "NOT NULL, portfolio_id INTEGER NOT NULL)"
+            )
+        )
+        connection.execute(text("INSERT INTO users VALUES (1, 0)"))
+        connection.execute(
+            text(
+                "INSERT INTO portfolios VALUES "
+                "(1, 'Warren Buffett / Berkshire Hathaway Demo', "
+                "'Berkshire Hathaway', 1), "
+                "(2, 'Warren Buffett / Berkshire Hathaway Demo', "
+                "'Berkshire Hathaway', 1)"
+            )
+        )
+        _insert_positions(connection, 1, ("AAPL", "AXP", "BAC", "CVX", "KO"))
+        _insert_positions(connection, 2, ("AAPL", "AXP", "BAC", "CVX"))
+        connection.execute(text("CREATE TABLE alembic_version (version_num VARCHAR)"))
+        connection.execute(text("INSERT INTO alembic_version VALUES ('f2a3b4c5d6e7')"))
+
+
+def _insert_positions(
+    connection,
+    portfolio_id: int,
+    tickers: tuple[str, ...],
+) -> None:
+    """Insert a compact position set for a migration fixture."""
+    for index, ticker in enumerate(tickers, start=portfolio_id * 10):
+        connection.execute(
+            text(
+                "INSERT INTO positions (id, ticker, portfolio_id) "
+                "VALUES (:id, :ticker, :portfolio_id)"
+            ),
+            {"id": index, "ticker": ticker, "portfolio_id": portfolio_id},
         )
 
 
