@@ -39,7 +39,6 @@ class AllocationService:
         session: Session,
         portfolio_id: int | None = None,
         user_id: int | None = None,
-        excluded_portfolio_name: str | None = None,
     ) -> PortfolioAllocationResponse:
         """Calculate asset allocations for a portfolio.
 
@@ -48,8 +47,6 @@ class AllocationService:
             portfolio_id (int | None): The ID of the portfolio to analyze, or
                 None to analyze all portfolios.
             user_id (int | None): Restrict an all-portfolios analysis to a user.
-            excluded_portfolio_name (str | None): Exclude a named portfolio from
-                an all-portfolios analysis.
         Returns:
             PortfolioAllocationResponse: The calculated allocation data.
         """
@@ -60,10 +57,6 @@ class AllocationService:
                 statement = (
                     select(Position).join(Portfolio).where(Portfolio.user_id == user_id)
                 )
-                if excluded_portfolio_name is not None:
-                    statement = statement.where(
-                        Portfolio.name != excluded_portfolio_name
-                    )
                 positions = session.exec(statement).all()
         else:
             positions = session.exec(

@@ -6,7 +6,7 @@ from collections.abc import Sequence
 from datetime import UTC, datetime, timedelta
 from decimal import Decimal
 
-from sqlmodel import Session, select
+from sqlmodel import Session, col, select
 
 from portfolio_assistant.core.exceptions import AIAnalysisError
 from portfolio_assistant.core.utils import get_now_utc
@@ -34,11 +34,19 @@ class AIAnalysisService:
         session: Session,
         portfolio_id: int,
         request: AIAnalysisRequest,
+        user_id: int | None = None,
     ) -> AIAnalysisResponse:
         """Return a valid cached report or generate and persist a new report."""
+        cache_portfolio_id = self._get_cache_portfolio_id(
+            session,
+            portfolio_id,
+            user_id,
+        )
         persona = self._parse_persona(request.persona_id)
-        portfolio_hash, positions = self._get_portfolio_snapshot(session, portfolio_id)
-        cached = ai_analysis_crud.get_latest_ai_analysis(session, portfolio_id)
+        portfolio_hash, positions = self._get_analysis_snapshot(
+            session, portfolio_id, user_id
+        )
+        cached = ai_analysis_crud.get_latest_ai_analysis(session, cache_portfolio_id)
         if cached is not None and self._is_cache_valid(
             cached,
             request,
@@ -60,7 +68,7 @@ class AIAnalysisService:
             raise AIAnalysisError(str(error)) from error
         saved = ai_analysis_crud.save_ai_analysis(
             session,
-            portfolio_id,
+            cache_portfolio_id,
             text,
             persona.value,
             request.user_context,
@@ -77,10 +85,16 @@ class AIAnalysisService:
         self,
         session: Session,
         portfolio_id: int,
+        user_id: int | None = None,
     ) -> AIAnalysisResponse | None:
         """Return the newest valid cached report without generating a new one."""
-        portfolio_hash, _ = self._get_portfolio_snapshot(session, portfolio_id)
-        cached = ai_analysis_crud.get_latest_ai_analysis(session, portfolio_id)
+        cache_portfolio_id = self._get_cache_portfolio_id(
+            session,
+            portfolio_id,
+            user_id,
+        )
+        portfolio_hash, _ = self._get_analysis_snapshot(session, portfolio_id, user_id)
+        cached = ai_analysis_crud.get_latest_ai_analysis(session, cache_portfolio_id)
         if cached is None:
             return None
         request = AIAnalysisRequest(
@@ -133,6 +147,20 @@ class AIAnalysisService:
             raise AIAnalysisError(message) from error
 
     @staticmethod
+    def _get_analysis_snapshot(
+        session: Session,
+        portfolio_id: int,
+        user_id: int | None,
+    ) -> tuple[str, list[dict[str, str]]]:
+        """Return either a portfolio or whole-user position snapshot."""
+        if user_id is None:
+            return AIAnalysisService._get_portfolio_snapshot(session, portfolio_id)
+        positions = session.exec(
+            select(Position).join(Portfolio).where(Portfolio.user_id == user_id)
+        ).all()
+        return AIAnalysisService._get_positions_snapshot(positions)
+
+    @staticmethod
     def _get_portfolio_snapshot(
         session: Session,
         portfolio_id: int,
@@ -142,6 +170,23 @@ class AIAnalysisService:
             select(Position).where(Position.portfolio_id == portfolio_id)
         ).all()
         return AIAnalysisService._get_positions_snapshot(positions)
+
+    @staticmethod
+    def _get_cache_portfolio_id(
+        session: Session,
+        portfolio_id: int,
+        user_id: int | None,
+    ) -> int:
+        """Return a stable cache owner for an authenticated user's wealth view."""
+        if user_id is None:
+            return portfolio_id
+        statement = (
+            select(Portfolio.id)
+            .where(Portfolio.user_id == user_id)
+            .order_by(col(Portfolio.id))
+        )
+        cache_portfolio_id = session.exec(statement).first()
+        return cache_portfolio_id if cache_portfolio_id is not None else portfolio_id
 
     @staticmethod
     def _get_positions_snapshot(

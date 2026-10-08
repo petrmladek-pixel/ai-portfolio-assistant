@@ -7,16 +7,25 @@ from decimal import Decimal
 from sqlalchemy.exc import SQLAlchemyError
 from sqlmodel import Session
 
+from portfolio_assistant.config import get_settings
 from portfolio_assistant.core.exceptions import PersistenceError
 from portfolio_assistant.crud import portfolio as portfolio_crud
+from portfolio_assistant.crud import user as user_crud
+from portfolio_assistant.models.ai import AIAnalysisResponse
 from portfolio_assistant.models.allocation import (
     AssetAllocation,
     PortfolioAllocationResponse,
 )
 from portfolio_assistant.models.db_models import Portfolio, Position
+from portfolio_assistant.models.user import User
 
 DEMO_PORTFOLIO_NAME = "Warren Buffett / Berkshire Hathaway Demo"
 DEMO_BROKER = "Berkshire Hathaway"
+DEMO_AI_ANALYSIS = (
+    "# Berkshire Hathaway Demo Analysis\n\n"
+    "This read-only demonstration illustrates a concentrated, quality-focused "
+    "equity allocation. It is educational content, not investment advice."
+)
 
 
 @dataclass(frozen=True)
@@ -223,7 +232,7 @@ _DEMO_POSITIONS = (
 )
 
 
-def create_demo_buffett_portfolio(session: Session, user_id: int) -> Portfolio:
+def get_or_create_demo_buffett_portfolio(session: Session) -> Portfolio:
     """Create or update a Berkshire-inspired portfolio with Decimal allocations.
 
     The reference prices make the seeded position values add up to the intended
@@ -244,10 +253,11 @@ def create_demo_buffett_portfolio(session: Session, user_id: int) -> Portfolio:
         for position in _DEMO_POSITIONS
     ]
     try:
+        demo_user = _get_or_create_demo_user(session)
+        if demo_user.id is None:
+            raise PersistenceError
         existing = portfolio_crud.get_portfolio_by_name_for_user(
-            session,
-            user_id,
-            DEMO_PORTFOLIO_NAME,
+            session, demo_user.id, DEMO_PORTFOLIO_NAME
         )
         if existing is not None:
             existing.broker = DEMO_BROKER
@@ -257,7 +267,7 @@ def create_demo_buffett_portfolio(session: Session, user_id: int) -> Portfolio:
             name=DEMO_PORTFOLIO_NAME,
             broker=DEMO_BROKER,
             description="Berkshire Hathaway-inspired equity allocation demo.",
-            user_id=user_id,
+            user_id=demo_user.id,
         )
         return portfolio_crud.create_portfolio_with_positions(
             session, portfolio, positions
@@ -265,6 +275,47 @@ def create_demo_buffett_portfolio(session: Session, user_id: int) -> Portfolio:
     except SQLAlchemyError as error:
         session.rollback()
         raise PersistenceError from error
+
+
+def get_demo_buffett_portfolio(session: Session) -> Portfolio | None:
+    """Return the seeded public demo portfolio without exposing its owner."""
+    return portfolio_crud.get_demo_portfolio(session, DEMO_PORTFOLIO_NAME)
+
+
+def get_demo_ai_analysis() -> AIAnalysisResponse:
+    """Return the dedicated report for the public read-only demo."""
+    from portfolio_assistant.core.utils import get_now_utc
+
+    return AIAnalysisResponse(
+        analysis_text=DEMO_AI_ANALYSIS,
+        persona_id="WARREN_BUFFETT",
+        cached=True,
+        created_at=get_now_utc(),
+    )
+
+
+def _get_or_create_demo_user(session: Session) -> User:
+    """Return the non-login system account that owns public demo data."""
+    user = user_crud.get_demo_user(session)
+    if user is not None:
+        return user
+    settings = get_settings()
+    user = user_crud.get_user_by_email(session, settings.demo_user_email)
+    if user is not None:
+        user.is_demo = True
+        user.is_active = False
+        session.add(user)
+        session.commit()
+        session.refresh(user)
+        return user
+    user = User(
+        email=settings.demo_user_email,
+        full_name="System Demo User",
+        hashed_password="system-demo-account",
+        is_active=False,
+        is_demo=True,
+    )
+    return user_crud.create_user(session, user)
 
 
 def get_demo_portfolio_allocations() -> PortfolioAllocationResponse:

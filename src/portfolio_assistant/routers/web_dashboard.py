@@ -32,8 +32,8 @@ from portfolio_assistant.models.portfolio import (
 from portfolio_assistant.models.user import User
 from portfolio_assistant.models.valuation import ValuedPortfolio
 from portfolio_assistant.services.demo_service import (
-    DEMO_PORTFOLIO_NAME,
     get_demo_asset_names,
+    get_demo_buffett_portfolio,
     get_demo_portfolio_allocations,
 )
 from portfolio_assistant.services.portfolio_merger import PortfolioMerger
@@ -113,20 +113,34 @@ async def dashboard_get(
         portfolios = get_portfolios_for_user(session, user_id)
         context["portfolios"] = portfolios
         context["has_data"] = True
+        demo_portfolio = get_demo_buffett_portfolio(session)
 
         # 3. Determine selected portfolio ID with simple, type-safe logic
         selected_id: int | str | None = None
         if norm_id == "all":
             selected_id = "all"
-        elif isinstance(norm_id, int) and any(p.id == norm_id for p in portfolios):
+        elif isinstance(norm_id, int) and (
+            any(p.id == norm_id for p in portfolios)
+            or demo_portfolio is not None
+            and demo_portfolio.id == norm_id
+        ):
             selected_id = norm_id
         else:
             selected_id = portfolios[0].id if portfolios else None
 
         context["selected_portfolio_id"] = selected_id
+        context["is_demo_portfolio"] = (
+            demo_portfolio is not None and selected_id == demo_portfolio.id
+        )
 
         # 4. Fetch, merge, and value positions
-        selected = _select_portfolios(session, user_id, selected_id, portfolios)
+        selected = _select_portfolios(
+            session,
+            user_id,
+            selected_id,
+            portfolios,
+            demo_portfolio,
+        )
         imported = _to_imported_portfolios(selected)
 
         if imported:
@@ -178,6 +192,7 @@ def _base_context(user: User | None, portfolio_id: str | int | None) -> dict[str
         "ai_analysis_markdown": "Nahrajte CSV data pro analyzu.",
         "portfolios": [],
         "selected_portfolio_id": portfolio_id,
+        "is_demo_portfolio": False,
         "persona_prompts": PERSONA_PROMPT_CONTEXT,
     }
 
@@ -217,6 +232,7 @@ def _get_guest_context() -> dict[str, Any]:
         "ai_analysis_markdown": "Demo portfolio Berkshire Hathaway analysis.",
         "portfolios": [],
         "selected_portfolio_id": "demo",
+        "is_demo_portfolio": True,
         "persona_prompts": PERSONA_PROMPT_CONTEXT,
         "error": None,
     }
@@ -227,19 +243,18 @@ def _select_portfolios(
     user_id: int,
     portfolio_id: str | int | None,
     portfolios: Sequence[Portfolio],
+    demo_portfolio: Portfolio | None = None,
 ) -> list[Portfolio]:
     if portfolio_id is None:
         return list(portfolios)
     if str(portfolio_id).lower() == "all":
-        return [
-            portfolio
-            for portfolio in portfolios
-            if portfolio.name != DEMO_PORTFOLIO_NAME
-        ]
+        return list(portfolios)
     try:
         pid = int(portfolio_id)
     except (TypeError, ValueError):
         return list(portfolios)
+    if demo_portfolio is not None and pid == demo_portfolio.id:
+        return [demo_portfolio]
     p = get_portfolio_for_user(session, pid, user_id)
     return [p] if p is not None else []
 

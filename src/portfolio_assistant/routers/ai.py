@@ -35,6 +35,10 @@ from portfolio_assistant.services.ai_analysis_service import (
     AIAnalysisService as PersonaAIAnalysisService,
 )
 from portfolio_assistant.services.ai_chat_service import AIChatService
+from portfolio_assistant.services.demo_service import (
+    get_demo_ai_analysis,
+    get_demo_buffett_portfolio,
+)
 from portfolio_assistant.services.user_service import UserService
 
 logger = logging.getLogger(__name__)
@@ -60,6 +64,15 @@ def get_chat_service() -> AIChatService:
 def get_user_service() -> UserService:
     """Provide the user preference workflow service."""
     return UserService()
+
+
+@router.get(
+    "/portfolios/demo/ai-analysis",
+    response_model=AIAnalysisResponse,
+)
+def get_public_demo_ai_analysis() -> AIAnalysisResponse:
+    """Return the fixed, read-only report for the public demo portfolio."""
+    return get_demo_ai_analysis()
 
 
 @router.get(
@@ -141,6 +154,8 @@ async def get_or_generate_ai_analysis(
     """Return a matching cached report or generate a persona-aware report."""
     if current_user.id is None:
         raise _portfolio_not_found()
+    if _is_demo_portfolio(session, portfolio_id):
+        return get_demo_ai_analysis()
     portfolio = portfolio_crud.get_portfolio_for_user(
         session,
         portfolio_id,
@@ -153,6 +168,7 @@ async def get_or_generate_ai_analysis(
             session,
             portfolio_id,
             payload,
+            current_user.id,
         )
     except AIAnalysisError as error:
         raise HTTPException(
@@ -180,6 +196,8 @@ def get_latest_persona_ai_analysis(
     """Return the newest valid persona-aware cache entry for a portfolio."""
     if current_user.id is None:
         raise _portfolio_not_found()
+    if _is_demo_portfolio(session, portfolio_id):
+        return get_demo_ai_analysis()
     portfolio = portfolio_crud.get_portfolio_for_user(
         session,
         portfolio_id,
@@ -188,7 +206,11 @@ def get_latest_persona_ai_analysis(
     if portfolio is None:
         raise _portfolio_not_found()
     try:
-        return analysis_service.get_latest_cached_analysis(session, portfolio_id)
+        return analysis_service.get_latest_cached_analysis(
+            session,
+            portfolio_id,
+            current_user.id,
+        )
     except SQLAlchemyError:
         logger.exception("Database error while retrieving persona-aware analysis")
         raise _persistence_error() from None
@@ -306,6 +328,12 @@ def _portfolio_not_found() -> HTTPException:
         status_code=status.HTTP_404_NOT_FOUND,
         detail="Portfolio not found.",
     )
+
+
+def _is_demo_portfolio(session: Session, portfolio_id: int) -> bool:
+    """Return whether an ID refers to the shared public demo portfolio."""
+    portfolio = get_demo_buffett_portfolio(session)
+    return portfolio is not None and portfolio.id == portfolio_id
 
 
 def _persistence_error() -> HTTPException:

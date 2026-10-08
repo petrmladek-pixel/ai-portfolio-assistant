@@ -1,6 +1,6 @@
 """Database operations for users."""
 
-from sqlmodel import Session, select
+from sqlmodel import Session, col, select
 
 from portfolio_assistant.models.user import User
 
@@ -8,6 +8,12 @@ from portfolio_assistant.models.user import User
 def get_user_by_email(session: Session, email: str) -> User | None:
     """Return the user with the given email address, if it exists."""
     statement = select(User).where(User.email == email)
+    return session.exec(statement).first()
+
+
+def get_demo_user(session: Session) -> User | None:
+    """Return the system-owned demo user, if it has been seeded."""
+    statement = select(User).where(col(User.is_demo).is_(True))
     return session.exec(statement).first()
 
 

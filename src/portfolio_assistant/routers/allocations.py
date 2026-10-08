@@ -13,7 +13,7 @@ from portfolio_assistant.dependencies import get_current_user, get_persisted_use
 from portfolio_assistant.models.allocation import PortfolioAllocationResponse
 from portfolio_assistant.models.user import User
 from portfolio_assistant.services.allocation import AllocationService
-from portfolio_assistant.services.demo_service import DEMO_PORTFOLIO_NAME
+from portfolio_assistant.services.demo_service import get_demo_buffett_portfolio
 
 logger = logging.getLogger(__name__)
 
@@ -25,14 +25,13 @@ async def get_all_portfolio_allocations(
     current_user: Annotated[User, Depends(get_current_user)],
     session: Annotated[Session, Depends(get_db_session)],
 ) -> PortfolioAllocationResponse:
-    """Return allocations across a user's non-demo portfolios."""
+    """Return allocations across the authenticated user's portfolios."""
     try:
         user_id = get_persisted_user_id(current_user)
         return await AllocationService().calculate_portfolio_allocations(
             session,
             portfolio_id=None,
             user_id=user_id,
-            excluded_portfolio_name=DEMO_PORTFOLIO_NAME,
         )
     except SQLAlchemyError:
         logger.exception("Database error while calculating all portfolio allocations")
@@ -61,10 +60,12 @@ async def get_portfolio_allocations(
             session, portfolio_id, user_id
         )
         if portfolio is None:
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
-                detail="Portfolio not found.",
-            )
+            portfolio = get_demo_buffett_portfolio(session)
+            if portfolio is None or portfolio.id != portfolio_id:
+                raise HTTPException(
+                    status_code=status.HTTP_404_NOT_FOUND,
+                    detail="Portfolio not found.",
+                )
         return await AllocationService().calculate_portfolio_allocations(
             session, portfolio_id
         )

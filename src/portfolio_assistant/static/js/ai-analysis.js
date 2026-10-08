@@ -38,8 +38,11 @@ function portfolioStrategicAnalysis(portfolioId, personaPrompts) {
 
       this.errorMessage = "";
       try {
+        const analysisPath = this.currentPortfolioId === "demo"
+          ? "/api/portfolios/demo/ai-analysis"
+          : `/api/portfolios/${this.currentPortfolioId}/ai-analysis`;
         const response = await fetch(
-          `/api/portfolios/${this.currentPortfolioId}/ai-analysis`,
+          analysisPath,
           { headers: { Accept: "application/json" } },
         );
         const payload = await response.json().catch(() => null);

@@ -91,6 +91,45 @@ async def test_all_portfolios_analysis_uses_positions_from_each_owned_portfolio(
 
 
 @pytest.mark.asyncio
+async def test_selected_broker_uses_one_user_wide_analysis_cache(
+    db_session,
+    portfolio_with_position,
+) -> None:
+    """Reuse one cache entry when different broker containers are selected."""
+    portfolio, _ = portfolio_with_position
+    second = Portfolio(
+        name="Second portfolio",
+        broker="Test broker",
+        user_id=portfolio.user_id,
+    )
+    db_session.add(second)
+    db_session.commit()
+    db_session.refresh(second)
+    assert second.id is not None
+    gemini = AsyncMock()
+    gemini.generate_report.return_value = "# Combined report"
+    service = AIAnalysisService(gemini_service=gemini)
+    request = AIAnalysisRequest()
+
+    first = await service.get_or_generate_analysis(
+        db_session,
+        portfolio.id,
+        request,
+        portfolio.user_id,
+    )
+    second_response = await service.get_or_generate_analysis(
+        db_session,
+        second.id,
+        request,
+        portfolio.user_id,
+    )
+
+    assert first.cached is False
+    assert second_response.cached is True
+    assert gemini.generate_report.await_count == 1
+
+
+@pytest.mark.asyncio
 async def test_analysis_cache_hit_when_request_and_positions_match(
     db_session,
     portfolio_with_position,

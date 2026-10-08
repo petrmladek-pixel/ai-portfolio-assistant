@@ -168,7 +168,7 @@ class PortfolioCreate(BaseModel):
 
 
 class DemoPortfolioResponse(BaseModel):
-    """Response returned after creating the authenticated user's demo portfolio."""
+    """Response returned after opening the shared read-only demo portfolio."""
 
     status: str
     portfolio_id: int

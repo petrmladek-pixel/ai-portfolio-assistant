@@ -51,7 +51,7 @@ class AIChatService:
         """Save a user query, obtain a Gemini response, and persist that reply."""
         self._ensure_owned_portfolio(db, portfolio_id, user)
         allocations = await self._allocation_service.calculate_portfolio_allocations(
-            db, portfolio_id=portfolio_id
+            db, user_id=user.id
         )
         history = ai_chat_crud.get_chat_history(db, portfolio_id, limit=10)
         self._save_message(db, portfolio_id, "user", user_message)

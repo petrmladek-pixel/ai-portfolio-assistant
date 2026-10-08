@@ -74,7 +74,7 @@ class AIAnalysisService:
                 raise AnalysisCooldownError(latest_analysis, remaining_time)
 
         allocations = await self._allocation_service.calculate_portfolio_allocations(
-            db, portfolio_id=portfolio_id
+            db, user_id=user.id
         )
         response_text = await self._generate_analysis(
             self._build_prompt(allocations, user.analysis_prompt)

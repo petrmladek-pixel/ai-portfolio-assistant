@@ -148,7 +148,7 @@ def test_get_dashboard():
     assert response.status_code == 200
     assert "text/html" in response.headers["content-type"]
     assert "Ukázka (Read-only)" in response.text
-    assert "10 000 000,00" in response.text
+    assert "101 500,00" in response.text
 
     # Test with authenticated user
     mock_user = User(id=1, email="admin@example.com", hashed_password="hash")
@@ -175,7 +175,7 @@ def test_dashboard_guest_mode():
     assert response.status_code == 200
     content = response.text
     assert "Ukázka (Read-only)" in content
-    assert "10 000 000,00" in content
+    assert "101 500,00" in content
     assert "AAPL" in content
     assert "OXY" in content
     assert "Analyzujte vlastní data" in content

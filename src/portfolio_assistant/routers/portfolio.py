@@ -22,8 +22,8 @@ from ..dependencies import get_current_user, get_persisted_user_id
 from ..models.db_models import Portfolio
 from ..models.user import User
 from ..services.demo_service import (
-    create_demo_buffett_portfolio,
     get_demo_portfolio_allocations,
+    get_or_create_demo_buffett_portfolio,
 )
 from ..services.portfolio_service import PortfolioService
 
@@ -53,12 +53,12 @@ async def create_demo_portfolio(
     current_user: Annotated[User, Depends(get_current_user)],
     session: Annotated[Session, Depends(get_db_session)],
 ) -> DemoPortfolioResponse:
-    """Create an authenticated user's one-click Buffett demo portfolio."""
-    user_id = get_persisted_user_id(current_user)
+    """Open the shared, read-only Buffett demo portfolio."""
+    del current_user
     try:
-        portfolio = create_demo_buffett_portfolio(session, user_id)
+        portfolio = get_or_create_demo_buffett_portfolio(session)
     except PersistenceError:
-        logger.exception("Database error while creating the demo portfolio")
+        logger.exception("Database error while opening the demo portfolio")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Database persistence failed.",

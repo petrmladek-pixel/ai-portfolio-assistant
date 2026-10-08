@@ -34,7 +34,7 @@ def test_public_demo_allocations_are_available_without_authentication() -> None:
     assert Decimal(payload["total_value"]) > Decimal("0")
 
 
-def test_post_demo_creates_valued_portfolio_and_allocations(
+def test_post_demo_opens_system_owned_portfolio_and_keeps_user_data_isolated(
     db_session: Session,
 ) -> None:
     """The demo endpoint creates valid positions usable by both calculations."""
@@ -63,7 +63,10 @@ def test_post_demo_creates_valued_portfolio_and_allocations(
         positions = db_session.exec(
             select(Position).where(Position.portfolio_id == portfolio.id)
         ).all()
-        assert portfolio.user_id == user.id
+        demo_user = db_session.get(User, portfolio.user_id)
+        assert demo_user is not None
+        assert demo_user.is_demo is True
+        assert portfolio.user_id != user.id
         assert len(positions) >= 20
         assert {"AAPL", "BAC", "AXP", "KO", "CVX"} <= {
             position.ticker for position in positions

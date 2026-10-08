@@ -64,7 +64,18 @@
             </section>
 
             <!-- AI Chat Widget -->
-            {% include 'components/chat_widget.html' %}
+            {% if not is_demo_portfolio %}
+              {% include 'components/chat_widget.html' %}
+            {% else %}
+              <section class="rounded-sm border border-border bg-card p-6">
+                <h3 class="text-[11px] font-semibold uppercase tracking-wider text-foreground">
+                  Demo mode
+                </h3>
+                <p class="mt-3 text-sm text-muted-foreground">
+                  Custom chat is disabled for the read-only demo portfolio.
+                </p>
+              </section>
+            {% endif %}
           </div>
           {% include 'components/positions_table.html' %}
           <div
@@ -74,7 +85,9 @@
             )'
             class="mt-6 space-y-6"
           >
-            {% include 'components/ai_analysis_controls.html' %}
+            {% if not is_demo_portfolio %}
+              {% include 'components/ai_analysis_controls.html' %}
+            {% endif %}
             {% include 'components/ai_analysis_report.html' %}
           </div>
         {% else %}

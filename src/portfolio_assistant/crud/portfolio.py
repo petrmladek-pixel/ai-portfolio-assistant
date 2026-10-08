@@ -2,7 +2,7 @@
 
 from collections.abc import Sequence
 
-from sqlmodel import Session, select
+from sqlmodel import Session, col, select
 
 from portfolio_assistant.models.db_models import Portfolio, Position
 
@@ -67,6 +67,18 @@ def get_portfolios_for_user(session: Session, user_id: int) -> Sequence[Portfoli
     """Return all portfolios owned by a user."""
     statement = select(Portfolio).where(Portfolio.user_id == user_id)
     return session.exec(statement).all()
+
+
+def get_demo_portfolio(session: Session, name: str) -> Portfolio | None:
+    """Return the public portfolio owned by the system demo user."""
+    from portfolio_assistant.models.user import User
+
+    statement = (
+        select(Portfolio)
+        .join(User)
+        .where(col(User.is_demo).is_(True), Portfolio.name == name)
+    )
+    return session.exec(statement).first()
 
 
 def replace_positions(
