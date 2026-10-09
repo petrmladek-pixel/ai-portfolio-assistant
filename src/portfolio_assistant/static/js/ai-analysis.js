@@ -19,7 +19,26 @@ function portfolioStrategicAnalysis(portfolioId, personaPrompts) {
 
     async init() {
       this.showEmptyState();
+      await this.loadInvestorContext();
       await this.loadCachedAnalysis();
+    },
+
+    async loadInvestorContext() {
+      const response = await fetch("/api/settings/investor-context");
+      if (!response.ok) return;
+      const payload = await response.json();
+      this.userContext = payload.investor_context || "";
+    },
+
+    async saveInvestorContext() {
+      const response = await fetch("/api/settings/investor-context", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ investor_context: this.userContext }),
+      });
+      if (!response.ok) {
+        throw new Error("Investor context could not be saved.");
+      }
     },
 
     showEmptyState() {
@@ -32,15 +51,17 @@ function portfolioStrategicAnalysis(portfolioId, personaPrompts) {
     },
 
     async loadCachedAnalysis() {
-      if (!this.currentPortfolioId || this.currentPortfolioId === "all") {
+      if (!this.currentPortfolioId) {
         return;
       }
 
       this.errorMessage = "";
       try {
-        const analysisPath = this.currentPortfolioId === "demo"
-          ? "/api/portfolios/demo/ai-analysis"
-          : `/api/portfolios/${this.currentPortfolioId}/ai-analysis`;
+        const analysisPath = this.currentPortfolioId === "all"
+          ? "/api/portfolios/ai-analysis/all"
+          : this.currentPortfolioId === "demo"
+            ? "/api/portfolios/demo/ai-analysis"
+            : `/api/portfolios/${this.currentPortfolioId}/ai-analysis`;
         const response = await fetch(
           analysisPath,
           { headers: { Accept: "application/json" } },
@@ -85,6 +106,7 @@ function portfolioStrategicAnalysis(portfolioId, personaPrompts) {
       this.isAnalyzing = true;
       this.errorMessage = "";
       try {
+        await this.saveInvestorContext();
         const endpoint = this.currentPortfolioId === "all"
           ? "/api/portfolios/ai-analysis/all"
           : `/api/portfolios/${this.currentPortfolioId}/ai-analysis`;

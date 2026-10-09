@@ -53,6 +53,7 @@
     <textarea
       id="user-context-textarea"
       x-model="userContext"
+      @change="saveInvestorContext()"
       rows="4"
       class="input-control resize-y"
       placeholder="Popište své záměry, horizont nebo důvody alokace (např. 'Nadvážení CZ bank z doby COVIDu, plánuji rotaci do USA ETF')..."

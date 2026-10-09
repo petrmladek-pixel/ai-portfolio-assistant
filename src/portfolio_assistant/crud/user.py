@@ -32,3 +32,16 @@ def update_analysis_prompt(session: Session, user: User, prompt: str | None) -> 
     session.commit()
     session.refresh(user)
     return user
+
+
+def update_investor_context(
+    session: Session,
+    user: User,
+    investor_context: str | None,
+) -> User:
+    """Persist and refresh a user's investor context."""
+    user.investor_context = investor_context
+    session.add(user)
+    session.commit()
+    session.refresh(user)
+    return user

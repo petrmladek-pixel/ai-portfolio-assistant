@@ -88,6 +88,42 @@ async def test_all_portfolios_analysis_uses_positions_from_each_owned_portfolio(
     prompt = gemini.generate_report.await_args.args[0]
     assert "AAPL" in prompt
     assert "MSFT" in prompt
+    saved = db_session.exec(select(PortfolioAIAnalysis)).one()
+    assert saved.portfolio_id == portfolio.id
+    cached = service.get_latest_all_portfolios_analysis(
+        db_session,
+        portfolio.user_id,
+        None,
+    )
+    assert cached is not None
+    assert cached.analysis_text == "# Combined report"
+
+
+def test_investor_context_api_persists_across_portfolio_views(
+    db_session,
+    portfolio_with_position,
+) -> None:
+    """Persist investor context as a user preference rather than a view value."""
+    portfolio, _ = portfolio_with_position
+    user = db_session.get(User, portfolio.user_id)
+    assert user is not None
+    app.dependency_overrides[get_current_user] = lambda: user
+    app.dependency_overrides[get_db_session] = lambda: db_session
+
+    try:
+        client = TestClient(app)
+        response = client.put(
+            "/api/settings/investor-context",
+            json={"investor_context": "Long-term retirement investor."},
+        )
+        stored = client.get("/api/settings/investor-context")
+
+        assert response.status_code == 200
+        assert stored.status_code == 200
+        assert stored.json() == {"investor_context": "Long-term retirement investor."}
+        assert user.investor_context == "Long-term retirement investor."
+    finally:
+        app.dependency_overrides.clear()
 
 
 @pytest.mark.asyncio

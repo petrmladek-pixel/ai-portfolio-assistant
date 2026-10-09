@@ -22,6 +22,8 @@ from portfolio_assistant.models.ai import (
     ChatMessageResponse,
     ChatRequest,
     ChatResponse,
+    InvestorContextResponse,
+    InvestorContextUpdateRequest,
     PortfolioAnalysisResponse,
     PromptResponse,
     PromptUpdateRequest,
@@ -150,6 +152,7 @@ async def get_or_generate_ai_analysis(
         PersonaAIAnalysisService,
         Depends(get_persona_analysis_service),
     ],
+    user_service: Annotated[UserService, Depends(get_user_service)],
 ) -> AIAnalysisResponse:
     """Return a matching cached report or generate a persona-aware report."""
     if current_user.id is None:
@@ -164,11 +167,18 @@ async def get_or_generate_ai_analysis(
     if portfolio is None:
         raise _portfolio_not_found()
     try:
+        user = _update_context_from_analysis_request(
+            session,
+            current_user,
+            payload,
+            user_service,
+        )
+        request = payload.model_copy(update={"user_context": user.investor_context})
         return await analysis_service.get_or_generate_analysis(
             session,
             portfolio_id,
-            payload,
-            current_user.id,
+            request,
+            user.id,
         )
     except AIAnalysisError as error:
         raise HTTPException(
@@ -210,6 +220,7 @@ def get_latest_persona_ai_analysis(
             session,
             portfolio_id,
             current_user.id,
+            current_user.investor_context,
         )
     except SQLAlchemyError:
         logger.exception("Database error while retrieving persona-aware analysis")
@@ -228,21 +239,55 @@ async def generate_all_portfolios_ai_analysis(
         PersonaAIAnalysisService,
         Depends(get_persona_analysis_service),
     ],
+    user_service: Annotated[UserService, Depends(get_user_service)],
 ) -> AIAnalysisResponse:
     """Generate an uncached report from every portfolio owned by the user."""
     if current_user.id is None:
         raise _portfolio_not_found()
     try:
+        user = _update_context_from_analysis_request(
+            session,
+            current_user,
+            payload,
+            user_service,
+        )
+        request = payload.model_copy(update={"user_context": user.investor_context})
         return await analysis_service.generate_all_portfolios_analysis(
             session,
             current_user.id,
-            payload,
+            request,
         )
     except AIAnalysisError as error:
         raise HTTPException(
             status_code=status.HTTP_502_BAD_GATEWAY,
             detail=str(error),
         ) from None
+
+
+@router.get(
+    "/portfolios/ai-analysis/all",
+    response_model=AIAnalysisResponse | None,
+)
+def get_latest_all_portfolios_ai_analysis(
+    current_user: Annotated[User, Depends(get_current_user)],
+    session: Annotated[Session, Depends(get_db_session)],
+    analysis_service: Annotated[
+        PersonaAIAnalysisService,
+        Depends(get_persona_analysis_service),
+    ],
+) -> AIAnalysisResponse | None:
+    """Return the persisted wealth report for the all-portfolios dashboard."""
+    if current_user.id is None:
+        raise _portfolio_not_found()
+    try:
+        return analysis_service.get_latest_all_portfolios_analysis(
+            session,
+            current_user.id,
+            current_user.investor_context,
+        )
+    except SQLAlchemyError:
+        logger.exception("Database error while retrieving wealth analysis")
+        raise _persistence_error() from None
 
 
 @router.get(
@@ -322,12 +367,52 @@ def update_prompt(
         raise _persistence_error() from None
 
 
+@router.get("/settings/investor-context", response_model=InvestorContextResponse)
+def get_investor_context(
+    current_user: Annotated[User, Depends(get_current_user)],
+) -> InvestorContextResponse:
+    """Return the saved investor context shared by all portfolio views."""
+    return InvestorContextResponse(investor_context=current_user.investor_context)
+
+
+@router.put("/settings/investor-context", response_model=InvestorContextResponse)
+def update_investor_context(
+    payload: InvestorContextUpdateRequest,
+    current_user: Annotated[User, Depends(get_current_user)],
+    session: Annotated[Session, Depends(get_db_session)],
+    user_service: Annotated[UserService, Depends(get_user_service)],
+) -> InvestorContextResponse:
+    """Persist a changed investor context independently of report generation."""
+    try:
+        user = user_service.set_investor_context(
+            session,
+            current_user,
+            payload.investor_context,
+        )
+        return InvestorContextResponse(investor_context=user.investor_context)
+    except SQLAlchemyError:
+        logger.exception("Database error while updating investor context")
+        raise _persistence_error() from None
+
+
 def _portfolio_not_found() -> HTTPException:
     """Build the common missing-portfolio HTTP response."""
     return HTTPException(
         status_code=status.HTTP_404_NOT_FOUND,
         detail="Portfolio not found.",
     )
+
+
+def _update_context_from_analysis_request(
+    session: Session,
+    user: User,
+    payload: AIAnalysisRequest,
+    user_service: UserService,
+) -> User:
+    """Persist an explicitly supplied context before generating a report."""
+    if payload.user_context is None:
+        return user
+    return user_service.set_investor_context(session, user, payload.user_context)
 
 
 def _is_demo_portfolio(session: Session, portfolio_id: int) -> bool:

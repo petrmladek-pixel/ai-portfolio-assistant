@@ -55,6 +55,7 @@ class AIAnalysisService:
             return AIAnalysisResponse(
                 analysis_text=cached.analysis_text,
                 persona_id=cached.persona_id,
+                user_context=cached.user_context,
                 cached=True,
                 created_at=self._as_utc(cached.created_at),
             )
@@ -77,6 +78,7 @@ class AIAnalysisService:
         return AIAnalysisResponse(
             analysis_text=saved.analysis_text,
             persona_id=saved.persona_id,
+            user_context=saved.user_context,
             cached=False,
             created_at=self._as_utc(saved.created_at),
         )
@@ -86,6 +88,7 @@ class AIAnalysisService:
         session: Session,
         portfolio_id: int,
         user_id: int | None = None,
+        user_context: str | None = None,
     ) -> AIAnalysisResponse | None:
         """Return the newest valid cached report without generating a new one."""
         cache_portfolio_id = self._get_cache_portfolio_id(
@@ -99,13 +102,14 @@ class AIAnalysisService:
             return None
         request = AIAnalysisRequest(
             persona_id=cached.persona_id,
-            user_context=cached.user_context,
+            user_context=user_context,
         )
         if not self._is_cache_valid(cached, request, portfolio_hash):
             return None
         return AIAnalysisResponse(
             analysis_text=cached.analysis_text,
             persona_id=cached.persona_id,
+            user_context=cached.user_context,
             cached=True,
             created_at=self._as_utc(cached.created_at),
         )
@@ -116,24 +120,28 @@ class AIAnalysisService:
         user_id: int,
         request: AIAnalysisRequest,
     ) -> AIAnalysisResponse:
-        """Generate one report from every portfolio owned by the user."""
-        persona = self._parse_persona(request.persona_id)
-        positions = session.exec(
-            select(Position).join(Portfolio).where(Portfolio.user_id == user_id)
-        ).all()
-        _, snapshot = self._get_positions_snapshot(positions)
-        prompt = self._build_prompt(
-            PERSONA_SYSTEM_PROMPTS[persona], snapshot, request.user_context
+        """Generate the same persisted wealth report used by broker views."""
+        cache_portfolio_id = self._get_cache_portfolio_id(session, 0, user_id)
+        return await self.get_or_generate_analysis(
+            session,
+            cache_portfolio_id,
+            request,
+            user_id,
         )
-        try:
-            text = await self._gemini_service.generate_report(prompt)
-        except RuntimeError as error:
-            raise AIAnalysisError(str(error)) from error
-        return AIAnalysisResponse(
-            analysis_text=text,
-            persona_id=persona.value,
-            cached=False,
-            created_at=get_now_utc(),
+
+    def get_latest_all_portfolios_analysis(
+        self,
+        session: Session,
+        user_id: int,
+        user_context: str | None,
+    ) -> AIAnalysisResponse | None:
+        """Return the cached wealth report shared by all portfolio views."""
+        cache_portfolio_id = self._get_cache_portfolio_id(session, 0, user_id)
+        return self.get_latest_cached_analysis(
+            session,
+            cache_portfolio_id,
+            user_id,
+            user_context,
         )
 
     @staticmethod

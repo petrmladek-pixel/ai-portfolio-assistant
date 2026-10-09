@@ -13,6 +13,7 @@ class UserBase(SQLModel):
     is_superuser: bool = Field(default=False)
     full_name: str | None = Field(default=None)
     analysis_prompt: str | None = Field(default=None)
+    investor_context: str | None = Field(default=None)
     is_demo: bool = Field(default=False, index=True)
 
 

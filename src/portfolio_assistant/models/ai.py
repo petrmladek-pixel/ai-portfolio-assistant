@@ -58,6 +58,18 @@ class PromptUpdateRequest(BaseModel):
     prompt: str
 
 
+class InvestorContextResponse(BaseModel):
+    """Stored investor context used by strategic portfolio analyses."""
+
+    investor_context: str | None
+
+
+class InvestorContextUpdateRequest(BaseModel):
+    """Payload for changing the stored investor context."""
+
+    investor_context: str = PydanticField(max_length=2000)
+
+
 class PortfolioAnalysisBase(SQLModel):
     """Base fields for portfolio analysis cache."""
 
@@ -110,6 +122,7 @@ class AIAnalysisResponse(BaseModel):
 
     analysis_text: str
     persona_id: str
+    user_context: str | None
     cached: bool
     created_at: datetime
 

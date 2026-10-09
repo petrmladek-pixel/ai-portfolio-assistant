@@ -13,6 +13,7 @@ from portfolio_assistant.crud.user import (
     create_user,
     get_user_by_email,
     update_analysis_prompt,
+    update_investor_context,
 )
 from portfolio_assistant.models.user import User, UserCreate
 from portfolio_assistant.services.portfolio_service import PortfolioService
@@ -68,6 +69,20 @@ class UserService:
         normalized_prompt = prompt.strip() or None
         try:
             return update_analysis_prompt(session, user, normalized_prompt)
+        except Exception:
+            session.rollback()
+            raise
+
+    def set_investor_context(
+        self,
+        session: Session,
+        user: User,
+        investor_context: str,
+    ) -> User:
+        """Update the saved investor context for all strategic analyses."""
+        normalized_context = investor_context.strip() or None
+        try:
+            return update_investor_context(session, user, normalized_context)
         except Exception:
             session.rollback()
             raise

@@ -289,6 +289,7 @@ def get_demo_ai_analysis() -> AIAnalysisResponse:
     return AIAnalysisResponse(
         analysis_text=DEMO_AI_ANALYSIS,
         persona_id="WARREN_BUFFETT",
+        user_context=None,
         cached=True,
         created_at=get_now_utc(),
     )
