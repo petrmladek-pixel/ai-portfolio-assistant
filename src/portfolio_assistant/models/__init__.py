@@ -3,7 +3,6 @@
 from portfolio_assistant.models.ai import (
     ChatMessage,
     PortfolioAIAnalysis,
-    PortfolioAnalysis,
 )
 from portfolio_assistant.models.db_models import Portfolio, Position, Transaction
 from portfolio_assistant.models.ticker_metadata import TickerMetadata
@@ -14,7 +13,6 @@ __all__ = [
     "ChatMessage",
     "Portfolio",
     "PortfolioAIAnalysis",
-    "PortfolioAnalysis",
     "Position",
     "TickerMetadata",
     "TickerPrice",

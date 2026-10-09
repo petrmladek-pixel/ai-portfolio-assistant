@@ -12,10 +12,52 @@ from portfolio_assistant.core.database import get_db_session
 from portfolio_assistant.dependencies import get_current_user
 from portfolio_assistant.main import app
 from portfolio_assistant.models.ai import AIAnalysisRequest, PortfolioAIAnalysis
+from portfolio_assistant.models.allocation import (
+    AssetAllocation,
+    PortfolioAllocationResponse,
+)
 from portfolio_assistant.models.db_models import Portfolio, Position
 from portfolio_assistant.models.user import User
 from portfolio_assistant.routers.ai import get_persona_analysis_service
 from portfolio_assistant.services.ai_analysis_service import AIAnalysisService
+from portfolio_assistant.services.allocation import AllocationService
+
+
+@pytest.fixture(autouse=True)
+def market_allocations(monkeypatch):
+    """Provide deterministic current market allocations for strategic tests."""
+
+    async def calculate(
+        _service,
+        session,
+        portfolio_id=None,
+        user_id=None,
+    ) -> PortfolioAllocationResponse:
+        statement = select(Position)
+        if user_id is not None:
+            statement = statement.join(Portfolio).where(Portfolio.user_id == user_id)
+        elif portfolio_id is not None:
+            statement = statement.where(Position.portfolio_id == portfolio_id)
+        positions = session.exec(statement).all()
+        values = [position.quantity * position.unit_cost for position in positions]
+        total = sum(values, Decimal("0"))
+        allocations = [
+            AssetAllocation(
+                ticker=position.ticker,
+                quantity=position.quantity,
+                current_price=position.unit_cost,
+                market_value=value,
+                percentage=(value / total) * 100 if total else Decimal("0"),
+            )
+            for position, value in zip(positions, values, strict=True)
+        ]
+        return PortfolioAllocationResponse(
+            portfolio_id=portfolio_id,
+            total_value=total,
+            allocations=allocations,
+        )
+
+    monkeypatch.setattr(AllocationService, "calculate_portfolio_allocations", calculate)
 
 
 @pytest.fixture
@@ -90,7 +132,7 @@ async def test_all_portfolios_analysis_uses_positions_from_each_owned_portfolio(
     assert "MSFT" in prompt
     saved = db_session.exec(select(PortfolioAIAnalysis)).one()
     assert saved.portfolio_id == portfolio.id
-    cached = service.get_latest_all_portfolios_analysis(
+    cached = await service.get_latest_all_portfolios_analysis(
         db_session,
         portfolio.user_id,
         None,

@@ -18,9 +18,23 @@ def get_latest_ai_analysis(
     return session.exec(statement).first()
 
 
+def get_latest_ai_analysis_for_user(
+    session: Session,
+    user_id: int,
+) -> PortfolioAIAnalysis | None:
+    """Return the newest strategic analysis owned by a user."""
+    statement = (
+        select(PortfolioAIAnalysis)
+        .where(PortfolioAIAnalysis.user_id == user_id)
+        .order_by(col(PortfolioAIAnalysis.created_at).desc())
+    )
+    return session.exec(statement).first()
+
+
 def save_ai_analysis(
     session: Session,
     portfolio_id: int,
+    user_id: int,
     text: str,
     persona_id: str,
     user_context: str | None,
@@ -29,6 +43,7 @@ def save_ai_analysis(
     """Persist one persona-aware Markdown analysis report."""
     analysis = PortfolioAIAnalysis(
         portfolio_id=portfolio_id,
+        user_id=user_id,
         analysis_text=text,
         persona_id=persona_id,
         user_context=user_context,

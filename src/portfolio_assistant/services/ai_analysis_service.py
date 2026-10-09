@@ -1,10 +1,8 @@
-"""Persona-aware portfolio analysis generation and cache validation."""
+"""User-owned strategic analysis generation and cache validation."""
 
 import hashlib
 import json
-from collections.abc import Sequence
 from datetime import UTC, datetime, timedelta
-from decimal import Decimal
 
 from sqlmodel import Session, col, select
 
@@ -16,52 +14,49 @@ from portfolio_assistant.models.ai import (
     AIAnalysisResponse,
     PortfolioAIAnalysis,
 )
-from portfolio_assistant.models.db_models import Portfolio, Position
+from portfolio_assistant.models.allocation import PortfolioAllocationResponse
+from portfolio_assistant.models.db_models import Portfolio
 from portfolio_assistant.models.persona import PERSONA_SYSTEM_PROMPTS, InvestmentPersona
 from portfolio_assistant.services.ai.gemini import GeminiAIService
+from portfolio_assistant.services.allocation import AllocationService
 
 ANALYSIS_CACHE_TTL = timedelta(days=7)
 
 
 class AIAnalysisService:
-    """Generate persona-aware reports while safely reusing valid cached reports."""
+    """Generate cached strategic reports from current whole-wealth allocations."""
 
-    def __init__(self, gemini_service: GeminiAIService | None = None) -> None:
+    def __init__(
+        self,
+        gemini_service: GeminiAIService | None = None,
+        allocation_service: AllocationService | None = None,
+    ) -> None:
         self._gemini_service = gemini_service or GeminiAIService()
+        self._allocation_service = allocation_service or AllocationService()
 
     async def get_or_generate_analysis(
         self,
         session: Session,
-        portfolio_id: int,
+        source_portfolio_id: int,
         request: AIAnalysisRequest,
         user_id: int | None = None,
     ) -> AIAnalysisResponse:
-        """Return a valid cached report or generate and persist a new report."""
-        cache_portfolio_id = self._get_cache_portfolio_id(
-            session,
-            portfolio_id,
-            user_id,
-        )
+        """Return a valid wealth cache entry or generate one from market values."""
+        user_id = user_id or self._get_user_id(session, source_portfolio_id)
         persona = self._parse_persona(request.persona_id)
-        portfolio_hash, positions = self._get_analysis_snapshot(
-            session, portfolio_id, user_id
+        allocations = await self._allocation_service.calculate_portfolio_allocations(
+            session,
+            user_id=user_id,
         )
-        cached = ai_analysis_crud.get_latest_ai_analysis(session, cache_portfolio_id)
-        if cached is not None and self._is_cache_valid(
-            cached,
-            request,
-            portfolio_hash,
-        ):
-            return AIAnalysisResponse(
-                analysis_text=cached.analysis_text,
-                persona_id=cached.persona_id,
-                user_context=cached.user_context,
-                cached=True,
-                created_at=self._as_utc(cached.created_at),
-            )
-
+        allocation_hash, snapshot = self._get_allocation_snapshot(allocations)
+        cached = ai_analysis_crud.get_latest_ai_analysis_for_user(session, user_id)
+        if self._is_cache_valid(cached, request, allocation_hash):
+            assert cached is not None
+            return self._response_from_cached(cached)
         prompt = self._build_prompt(
-            PERSONA_SYSTEM_PROMPTS[persona], positions, request.user_context
+            PERSONA_SYSTEM_PROMPTS[persona],
+            snapshot,
+            request.user_context,
         )
         try:
             text = await self._gemini_service.generate_report(prompt)
@@ -69,50 +64,37 @@ class AIAnalysisService:
             raise AIAnalysisError(str(error)) from error
         saved = ai_analysis_crud.save_ai_analysis(
             session,
-            cache_portfolio_id,
+            source_portfolio_id,
+            user_id,
             text,
             persona.value,
             request.user_context,
-            portfolio_hash,
+            allocation_hash,
         )
-        return AIAnalysisResponse(
-            analysis_text=saved.analysis_text,
-            persona_id=saved.persona_id,
-            user_context=saved.user_context,
-            cached=False,
-            created_at=self._as_utc(saved.created_at),
-        )
+        return self._response_from_cached(saved, cache_hit=False)
 
-    def get_latest_cached_analysis(
+    async def get_latest_cached_analysis(
         self,
         session: Session,
-        portfolio_id: int,
-        user_id: int | None = None,
-        user_context: str | None = None,
+        user_id: int,
+        user_context: str | None,
     ) -> AIAnalysisResponse | None:
-        """Return the newest valid cached report without generating a new one."""
-        cache_portfolio_id = self._get_cache_portfolio_id(
-            session,
-            portfolio_id,
-            user_id,
-        )
-        portfolio_hash, _ = self._get_analysis_snapshot(session, portfolio_id, user_id)
-        cached = ai_analysis_crud.get_latest_ai_analysis(session, cache_portfolio_id)
+        """Return the user's current wealth report without generating one."""
+        cached = ai_analysis_crud.get_latest_ai_analysis_for_user(session, user_id)
         if cached is None:
             return None
+        allocations = await self._allocation_service.calculate_portfolio_allocations(
+            session,
+            user_id=user_id,
+        )
+        allocation_hash, _ = self._get_allocation_snapshot(allocations)
         request = AIAnalysisRequest(
             persona_id=cached.persona_id,
             user_context=user_context,
         )
-        if not self._is_cache_valid(cached, request, portfolio_hash):
+        if not self._is_cache_valid(cached, request, allocation_hash):
             return None
-        return AIAnalysisResponse(
-            analysis_text=cached.analysis_text,
-            persona_id=cached.persona_id,
-            user_context=cached.user_context,
-            cached=True,
-            created_at=self._as_utc(cached.created_at),
-        )
+        return self._response_from_cached(cached)
 
     async def generate_all_portfolios_analysis(
         self,
@@ -120,29 +102,59 @@ class AIAnalysisService:
         user_id: int,
         request: AIAnalysisRequest,
     ) -> AIAnalysisResponse:
-        """Generate the same persisted wealth report used by broker views."""
-        cache_portfolio_id = self._get_cache_portfolio_id(session, 0, user_id)
+        """Generate the shared wealth report from the all-portfolios view."""
         return await self.get_or_generate_analysis(
             session,
-            cache_portfolio_id,
+            self._get_source_portfolio_id(session, user_id),
             request,
             user_id,
         )
 
-    def get_latest_all_portfolios_analysis(
+    async def get_latest_all_portfolios_analysis(
         self,
         session: Session,
         user_id: int,
         user_context: str | None,
     ) -> AIAnalysisResponse | None:
-        """Return the cached wealth report shared by all portfolio views."""
-        cache_portfolio_id = self._get_cache_portfolio_id(session, 0, user_id)
-        return self.get_latest_cached_analysis(
-            session,
-            cache_portfolio_id,
-            user_id,
-            user_context,
-        )
+        """Return the shared wealth report for the all-portfolios view."""
+        return await self.get_latest_cached_analysis(session, user_id, user_context)
+
+    @staticmethod
+    def _get_source_portfolio_id(session: Session, user_id: int) -> int:
+        """Return a portfolio only for the legacy foreign-key reference."""
+        statement = select(Portfolio.id).where(Portfolio.user_id == user_id)
+        portfolio_id = session.exec(statement.order_by(col(Portfolio.id))).first()
+        if portfolio_id is None:
+            raise AIAnalysisError("No portfolio is available for analysis.")
+        return portfolio_id
+
+    @staticmethod
+    def _get_user_id(session: Session, portfolio_id: int) -> int:
+        """Return the owner of a source portfolio for compatibility callers."""
+        statement = select(Portfolio.user_id).where(Portfolio.id == portfolio_id)
+        user_id = session.exec(statement).first()
+        if user_id is None:
+            raise AIAnalysisError("Portfolio owner is not available for analysis.")
+        return user_id
+
+    @staticmethod
+    def _get_allocation_snapshot(
+        allocations: PortfolioAllocationResponse,
+    ) -> tuple[str, list[dict[str, str]]]:
+        """Serialize current market allocations and return their cache hash."""
+        snapshot = [
+            {
+                "market_value": str(item.market_value),
+                "region": item.region or "Unknown",
+                "sector": item.sector or "Unknown",
+                "ticker": item.ticker,
+                "weight": str(item.percentage / 100),
+            }
+            for item in allocations.allocations
+        ]
+        snapshot.sort(key=lambda item: item["ticker"])
+        payload = json.dumps(snapshot, sort_keys=True, separators=(",", ":"))
+        return hashlib.sha256(payload.encode("utf-8")).hexdigest(), snapshot
 
     @staticmethod
     def _parse_persona(persona_id: str) -> InvestmentPersona:
@@ -151,103 +163,39 @@ class AIAnalysisService:
             return InvestmentPersona(persona_id)
         except ValueError as error:
             allowed = ", ".join(persona.value for persona in InvestmentPersona)
-            message = f"Unsupported persona_id. Allowed values: {allowed}."
-            raise AIAnalysisError(message) from error
-
-    @staticmethod
-    def _get_analysis_snapshot(
-        session: Session,
-        portfolio_id: int,
-        user_id: int | None,
-    ) -> tuple[str, list[dict[str, str]]]:
-        """Return either a portfolio or whole-user position snapshot."""
-        if user_id is None:
-            return AIAnalysisService._get_portfolio_snapshot(session, portfolio_id)
-        positions = session.exec(
-            select(Position).join(Portfolio).where(Portfolio.user_id == user_id)
-        ).all()
-        return AIAnalysisService._get_positions_snapshot(positions)
-
-    @staticmethod
-    def _get_portfolio_snapshot(
-        session: Session,
-        portfolio_id: int,
-    ) -> tuple[str, list[dict[str, str]]]:
-        """Return deterministic active-position data and its SHA256 hash."""
-        positions = session.exec(
-            select(Position).where(Position.portfolio_id == portfolio_id)
-        ).all()
-        return AIAnalysisService._get_positions_snapshot(positions)
-
-    @staticmethod
-    def _get_cache_portfolio_id(
-        session: Session,
-        portfolio_id: int,
-        user_id: int | None,
-    ) -> int:
-        """Return a stable cache owner for an authenticated user's wealth view."""
-        if user_id is None:
-            return portfolio_id
-        statement = (
-            select(Portfolio.id)
-            .where(Portfolio.user_id == user_id)
-            .order_by(col(Portfolio.id))
-        )
-        cache_portfolio_id = session.exec(statement).first()
-        return cache_portfolio_id if cache_portfolio_id is not None else portfolio_id
-
-    @staticmethod
-    def _get_positions_snapshot(
-        positions: Sequence[Position],
-    ) -> tuple[str, list[dict[str, str]]]:
-        """Serialize positions and return a deterministic cache hash."""
-        active_positions = [position for position in positions if position.quantity > 0]
-        total_value = sum(
-            (position.quantity * position.unit_cost for position in active_positions),
-            Decimal("0"),
-        )
-        snapshot = [
-            AIAnalysisService._position_snapshot(position, total_value)
-            for position in active_positions
-        ]
-        snapshot.sort(
-            key=lambda item: (item["ticker"], item["isin"], item["asset_name"])
-        )
-        payload = json.dumps(snapshot, sort_keys=True, separators=(",", ":"))
-        portfolio_hash = hashlib.sha256(payload.encode("utf-8")).hexdigest()
-        return portfolio_hash, snapshot
-
-    @staticmethod
-    def _position_snapshot(
-        position: Position,
-        total_value: Decimal,
-    ) -> dict[str, str]:
-        """Serialize one position with a Decimal-derived cost-basis weight."""
-        value = position.quantity * position.unit_cost
-        weight = value / total_value if total_value else Decimal("0")
-        return {
-            "asset_name": position.asset_name,
-            "isin": position.isin or "",
-            "quantity": str(position.quantity),
-            "ticker": position.ticker,
-            "weight": str(weight),
-        }
+            raise AIAnalysisError(
+                f"Unsupported persona_id. Allowed values: {allowed}."
+            ) from error
 
     @staticmethod
     def _is_cache_valid(
         cached: PortfolioAIAnalysis | None,
         request: AIAnalysisRequest,
-        portfolio_hash: str,
+        allocation_hash: str,
     ) -> bool:
-        """Return whether the cached report exactly matches the request state."""
+        """Return whether the cached report exactly matches current wealth data."""
         if cached is None or request.force_refresh:
             return False
-        created_at = AIAnalysisService._as_utc(cached.created_at)
         return (
-            get_now_utc() - created_at < ANALYSIS_CACHE_TTL
+            get_now_utc() - AIAnalysisService._as_utc(cached.created_at)
+            < ANALYSIS_CACHE_TTL
             and cached.persona_id == request.persona_id
             and cached.user_context == request.user_context
-            and cached.portfolio_hash == portfolio_hash
+            and cached.portfolio_hash == allocation_hash
+        )
+
+    @staticmethod
+    def _response_from_cached(
+        analysis: PortfolioAIAnalysis,
+        cache_hit: bool = True,
+    ) -> AIAnalysisResponse:
+        """Map a database cache record to the public response model."""
+        return AIAnalysisResponse(
+            analysis_text=analysis.analysis_text,
+            persona_id=analysis.persona_id,
+            user_context=analysis.user_context,
+            cached=cache_hit,
+            created_at=AIAnalysisService._as_utc(analysis.created_at),
         )
 
     @staticmethod
@@ -258,23 +206,22 @@ class AIAnalysisService:
     @staticmethod
     def _build_prompt(
         system_prompt: str,
-        positions: list[dict[str, str]],
+        allocations: list[dict[str, str]],
         user_context: str | None,
     ) -> str:
-        """Build the complete model prompt from persona and portfolio context."""
+        """Build the complete model prompt from market-valued wealth data."""
         positions_text = (
             "\n".join(
-                "- {ticker} ({asset_name}), ISIN: {isin}, weight: {weight}".format(
-                    **position
-                )
-                for position in positions
+                "- {ticker}, weight: {weight}, value: {market_value}, "
+                "sector: {sector}, region: {region}".format(**item)
+                for item in allocations
             )
             or "No active positions are available."
         )
         context = user_context.strip() if user_context else "No user context supplied."
         return (
             f"System instructions:\n{system_prompt}\n\n"
-            f"Portfolio positions:\n{positions_text}\n\n"
+            f"Current whole-wealth allocation:\n{positions_text}\n\n"
             f"Investor context:\n{context}\n\n"
             "Return only the requested Markdown report."
         )

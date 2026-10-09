@@ -1,7 +1,6 @@
 """HTTP endpoints for AI portfolio analysis, chat, and prompt preferences."""
 
 import logging
-from datetime import timedelta
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, HTTPException, status
@@ -24,15 +23,10 @@ from portfolio_assistant.models.ai import (
     ChatResponse,
     InvestorContextResponse,
     InvestorContextUpdateRequest,
-    PortfolioAnalysisResponse,
     PromptResponse,
     PromptUpdateRequest,
 )
 from portfolio_assistant.models.user import User
-from portfolio_assistant.services.ai_analysis import (
-    AIAnalysisService,
-    AnalysisCooldownError,
-)
 from portfolio_assistant.services.ai_analysis_service import (
     AIAnalysisService as PersonaAIAnalysisService,
 )
@@ -46,11 +40,6 @@ from portfolio_assistant.services.user_service import UserService
 logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/api", tags=["ai"])
-
-
-def get_analysis_service() -> AIAnalysisService:
-    """Provide the portfolio analysis workflow service."""
-    return AIAnalysisService()
 
 
 def get_persona_analysis_service() -> PersonaAIAnalysisService:
@@ -75,68 +64,6 @@ def get_user_service() -> UserService:
 def get_public_demo_ai_analysis() -> AIAnalysisResponse:
     """Return the fixed, read-only report for the public demo portfolio."""
     return get_demo_ai_analysis()
-
-
-@router.get(
-    "/portfolios/{portfolio_id}/analysis/latest",
-    response_model=PortfolioAnalysisResponse | None,
-)
-def get_latest_analysis(
-    portfolio_id: int,
-    current_user: Annotated[User, Depends(get_current_user)],
-    session: Annotated[Session, Depends(get_db_session)],
-    analysis_service: Annotated[AIAnalysisService, Depends(get_analysis_service)],
-) -> PortfolioAnalysisResponse | None:
-    """Return the latest cached analysis for the authenticated user's portfolio."""
-    try:
-        analysis = analysis_service.get_latest_analysis(
-            session,
-            portfolio_id,
-            current_user,
-        )
-        if analysis is None:
-            return None
-        return PortfolioAnalysisResponse.model_validate(analysis)
-    except PortfolioNotFoundError:
-        raise _portfolio_not_found() from None
-    except SQLAlchemyError:
-        logger.exception("Database error while retrieving portfolio analysis")
-        raise _persistence_error() from None
-
-
-@router.post(
-    "/portfolios/{portfolio_id}/analyze",
-    response_model=PortfolioAnalysisResponse,
-)
-async def analyze_portfolio(
-    portfolio_id: int,
-    current_user: Annotated[User, Depends(get_current_user)],
-    session: Annotated[Session, Depends(get_db_session)],
-    analysis_service: Annotated[AIAnalysisService, Depends(get_analysis_service)],
-) -> PortfolioAnalysisResponse:
-    """Generate and cache an AI analysis for the authenticated user's portfolio."""
-    try:
-        analysis = await analysis_service.analyze_portfolio(
-            session,
-            portfolio_id,
-            current_user,
-        )
-        return PortfolioAnalysisResponse.model_validate(analysis)
-    except AnalysisCooldownError as error:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail=_cooldown_message(error.remaining_time),
-        ) from None
-    except PortfolioNotFoundError:
-        raise _portfolio_not_found() from None
-    except PersistenceError:
-        logger.exception("Database error while saving portfolio analysis")
-        raise _persistence_error() from None
-    except AIAnalysisError as error:
-        raise HTTPException(
-            status_code=status.HTTP_502_BAD_GATEWAY,
-            detail=str(error),
-        ) from None
 
 
 @router.post(
@@ -178,7 +105,7 @@ async def get_or_generate_ai_analysis(
             session,
             portfolio_id,
             request,
-            user.id,
+            current_user.id,
         )
     except AIAnalysisError as error:
         raise HTTPException(
@@ -194,7 +121,7 @@ async def get_or_generate_ai_analysis(
     "/portfolios/{portfolio_id}/ai-analysis",
     response_model=AIAnalysisResponse | None,
 )
-def get_latest_persona_ai_analysis(
+async def get_latest_persona_ai_analysis(
     portfolio_id: int,
     current_user: Annotated[User, Depends(get_current_user)],
     session: Annotated[Session, Depends(get_db_session)],
@@ -216,9 +143,8 @@ def get_latest_persona_ai_analysis(
     if portfolio is None:
         raise _portfolio_not_found()
     try:
-        return analysis_service.get_latest_cached_analysis(
+        return await analysis_service.get_latest_cached_analysis(
             session,
-            portfolio_id,
             current_user.id,
             current_user.investor_context,
         )
@@ -268,7 +194,7 @@ async def generate_all_portfolios_ai_analysis(
     "/portfolios/ai-analysis/all",
     response_model=AIAnalysisResponse | None,
 )
-def get_latest_all_portfolios_ai_analysis(
+async def get_latest_all_portfolios_ai_analysis(
     current_user: Annotated[User, Depends(get_current_user)],
     session: Annotated[Session, Depends(get_db_session)],
     analysis_service: Annotated[
@@ -280,7 +206,7 @@ def get_latest_all_portfolios_ai_analysis(
     if current_user.id is None:
         raise _portfolio_not_found()
     try:
-        return analysis_service.get_latest_all_portfolios_analysis(
+        return await analysis_service.get_latest_all_portfolios_analysis(
             session,
             current_user.id,
             current_user.investor_context,
@@ -426,24 +352,4 @@ def _persistence_error() -> HTTPException:
     return HTTPException(
         status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
         detail="Database persistence failed.",
-    )
-
-
-def _cooldown_message(remaining_time: timedelta) -> str:
-    """Describe the seven-day analysis cooldown and its remaining duration."""
-    total_seconds = max(0, int(remaining_time.total_seconds()))
-    days, remainder = divmod(total_seconds, 86_400)
-    hours, remainder = divmod(remainder, 3_600)
-    minutes = remainder // 60
-    parts = []
-    if days:
-        parts.append(f"{days} day{'s' if days != 1 else ''}")
-    if hours:
-        parts.append(f"{hours} hour{'s' if hours != 1 else ''}")
-    if minutes or not parts:
-        parts.append(f"{minutes} minute{'s' if minutes != 1 else ''}")
-    return (
-        "Analysis is limited to one request every 7 days. Remaining time: "
-        + ", ".join(parts)
-        + "."
     )

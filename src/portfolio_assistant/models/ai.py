@@ -10,18 +10,6 @@ from portfolio_assistant.core.types import UTCDateTime
 from portfolio_assistant.core.utils import get_now_utc
 
 
-class PortfolioAnalysisResponse(BaseModel):
-    """Public representation of a cached portfolio analysis."""
-
-    model_config = ConfigDict(from_attributes=True)
-
-    id: int
-    portfolio_id: int
-    rating_score: int
-    analysis_content: str
-    created_at: datetime
-
-
 class ChatMessageResponse(BaseModel):
     """Public representation of one stored chat message."""
 
@@ -70,27 +58,6 @@ class InvestorContextUpdateRequest(BaseModel):
     investor_context: str = PydanticField(max_length=2000)
 
 
-class PortfolioAnalysisBase(SQLModel):
-    """Base fields for portfolio analysis cache."""
-
-    portfolio_id: int = Field(foreign_key="portfolios.id", index=True)
-    rating_score: int = Field(ge=1, le=100)
-    analysis_content: str
-
-
-class PortfolioAnalysis(PortfolioAnalysisBase, table=True):
-    """Database model for cached portfolio AI analysis reports."""
-
-    __tablename__ = "portfolio_analyses"
-
-    id: int | None = Field(default=None, primary_key=True)
-    created_at: datetime = Field(
-        default_factory=get_now_utc,
-        nullable=False,
-        sa_type=UTCDateTime,
-    )
-
-
 class PortfolioAIAnalysis(SQLModel, table=True):
     """Persona-aware cached Markdown report for a portfolio."""
 
@@ -98,6 +65,7 @@ class PortfolioAIAnalysis(SQLModel, table=True):
 
     id: int | None = Field(default=None, primary_key=True)
     portfolio_id: int = Field(foreign_key="portfolios.id", index=True)
+    user_id: int | None = Field(default=None, foreign_key="users.id", index=True)
     analysis_text: str
     persona_id: str = Field(default="WARREN_BUFFETT", index=True)
     user_context: str | None = Field(default=None)
